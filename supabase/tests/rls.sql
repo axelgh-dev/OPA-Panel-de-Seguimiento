@@ -199,6 +199,10 @@ select tests.count_is('al editar queda edited_at',
   'select 1 from public.comments where edited_at is not null', 1);
 select tests.works('el autor borra su comentario (borrado lógico) dentro de 15 min',
   $q$update public.comments set deleted_at = now() where body = 'Hola editado'$q$);
+select tests.works('el autor borra físicamente un comentario propio reciente sin respuestas',
+  $q$insert into public.comments (project_id, target_type, target_id, author_id, body) values ('10000000-0000-0000-0000-000000000001', 'project', '10000000-0000-0000-0000-000000000001', auth.uid(), 'Para borrar')$q$);
+select tests.affects('DELETE: el autor borra su comentario dentro de 15 min',
+  $q$delete from public.comments where body = 'Para borrar'$q$, 1);
 select tests.works('OPA marca como leído un proyecto',
   $q$insert into public.read_receipts (user_id, target_type, target_id) values (auth.uid(), 'project', '10000000-0000-0000-0000-000000000001')$q$);
 select tests.fails('OPA no escribe recibos de otro usuario',
@@ -217,6 +221,10 @@ select tests.fails('no edita un comentario pasados 15 min',
   $q$update public.comments set body = 'tarde' where id = '40000000-0000-0000-0000-000000000001'$q$, '15 minutos');
 select tests.affects('no edita comentarios ajenos',
   $q$update public.comments set body = 'x' where author_id = '00000000-0000-0000-0000-0000000000a1'$q$, 0);
+select tests.affects('DELETE: no borra comentarios ajenos',
+  $q$delete from public.comments where author_id = '00000000-0000-0000-0000-0000000000a1'$q$, 0);
+select tests.affects('DELETE: no borra su comentario pasados 15 min',
+  $q$delete from public.comments where id = '40000000-0000-0000-0000-000000000001'$q$, 0);
 select tests.count_is('no ve recibos de lectura ajenos', 'select 1 from public.read_receipts', 0);
 select tests.works('también puede aprobar (todas las cuentas OPA igual)',
   $q$select public.set_project_priority('10000000-0000-0000-0000-000000000001', 'baja')$q$);
