@@ -1,5 +1,5 @@
-@import '@fontsource-variable/inter';
-@import '@fontsource-variable/source-serif-4';
+@import '@fontsource-variable/public-sans';
+@import '@fontsource-variable/newsreader';
 
 @tailwind base;
 @tailwind components;
@@ -79,7 +79,7 @@
 
   h1,
   h2 {
-    @apply font-serif font-semibold tracking-tight text-primary;
+    @apply font-serif font-semibold tracking-[-0.01em] text-primary;
   }
 
   :focus-visible {

@@ -76,7 +76,7 @@ Identidad tomada de opasesores.com y modernizada. Tokens (definir como variables
 | text | `#1F2933` / muted `#5F6B7A` | Texto |
 | success / warning / danger / info | `#2F7D5B` / `#B7791F` / `#B23B3B` / `#2F6FA3` | Estatus |
 
-- Tipografía: **Inter** para UI (cifras con `tabular-nums`), **Source Serif 4** 600 para títulos de página y nombres de proyecto.
+- Tipografía (fuentes locales vía `@fontsource-variable`, sin pedir nada a Google): **Public Sans** para UI y cuerpo (cifras con `tabular-nums`), **Newsreader** 600 para títulos de página y nombres de proyecto.
 - Estilo serio y empresarial: tarjetas blancas, radio 10–12 px, sombras mínimas, mucho aire, sin degradados llamativos. Sidebar azul marino con el logo en blanco.
 - Logo: los originales están en la carpeta `logo/` del workspace (no los modifiques). Copia lo necesario a `public/brand/`. Si no hay versión en blanco para la sidebar oscura, genérala (SVG con `fill` blanco, o filtro CSS sobre el PNG) y avisa.
 - Contraste WCAG AA, foco visible, navegación por teclado. Responsive desde 375 px.

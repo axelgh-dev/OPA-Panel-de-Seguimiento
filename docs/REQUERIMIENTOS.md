@@ -244,8 +244,8 @@ Extraída del sitio actual (opasesores.com, WordPress con tema Flatsome), modern
 - **[SUPUESTO]** Solo modo claro en el MVP; los tokens se definen de forma que el modo oscuro se pueda añadir después.
 
 ### 8.3 Tipografía
-- **UI y cuerpo:** Inter (Google Fonts), con `font-variant-numeric: tabular-nums` en cifras y porcentajes. Más moderna y legible en dashboards que Lato. **[SUPUESTO]** Si se prefiere continuidad total con el sitio, usar Lato.
-- **Títulos de página y nombre de proyecto:** Source Serif 4 (sucesora de Source Serif Pro), peso 600. Da el toque "despacho profesional".
+- **UI y cuerpo:** Public Sans (servida localmente con `@fontsource-variable`), con `font-variant-numeric: tabular-nums` en cifras y porcentajes. Neutra, institucional y legible en dashboards. Decisión de Axel (nov 2026) entre tres propuestas.
+- **Títulos de página y nombre de proyecto:** Newsreader, peso 600. Serif clásica, cercana a la del logo; da el toque "despacho profesional".
 - Escala: 12 / 14 (base) / 16 / 20 / 24 / 30 px.
 
 ### 8.4 Estilo de componentes
@@ -325,6 +325,5 @@ Criterios de aceptación:
 ## 11. Pendientes por confirmar
 1. Dominio para correo (fase 3): Resend necesita un dominio verificado con acceso DNS.
 2. Lista de proyectos reales actuales para sembrar la fase 2.
-3. Inter vs. Lato como tipografía principal.
 
 **Resuelto (23 nov 2026):** los 3 usuarios OPA tienen los mismos permisos; todos ven todos los proyectos; Vercel solo para presentar el concepto; logo en `logo/` del workspace.
