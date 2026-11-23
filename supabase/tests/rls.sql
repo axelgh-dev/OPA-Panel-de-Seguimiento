@@ -1,8 +1,13 @@
 -- Pruebas de RLS, triggers y RPC (docs/REQUERIMIENTOS.md §7.3 y criterios de la Fase 2).
--- Se ejecuta completo dentro de una transacción que termina en ROLLBACK: no deja datos.
+-- Se ejecuta completo dentro de una transacción que termina en ROLLBACK: no deja ni borra datos.
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql
 -- Cada aserción lanza una excepción si falla; al final imprime "RLS OK".
 begin;
+
+-- La prueba parte de una base vacía. Todo ocurre dentro de esta transacción y termina en ROLLBACK,
+-- así que los datos que ya tengas (por ejemplo el seed local) no se tocan.
+delete from public.projects;
+delete from auth.users;
 
 create schema tests;
 grant usage on schema tests to public;
