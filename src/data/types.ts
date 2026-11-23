@@ -250,6 +250,11 @@ export interface AddCommentInput {
   parent_id?: string | null
 }
 
+export interface EditCommentInput {
+  id: string
+  body: string
+}
+
 export interface CreateChangeRequestInput {
   project_id: string
   title: string

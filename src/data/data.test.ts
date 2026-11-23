@@ -1,7 +1,11 @@
+import { getDb } from './mock/db'
 import {
   DomainError,
   addComment,
   createChangeRequest,
+  deleteComment,
+  editComment,
+  getComments,
   getDashboardKpis,
   getDeliverables,
   getProject,
@@ -149,5 +153,68 @@ describe('KPIs del dashboard', () => {
   it('dev cuenta también el proyecto en borrador', async () => {
     setSession(AXEL)
     expect((await getDashboardKpis()).active_projects).toBe(5)
+  })
+})
+
+describe('comentarios propios: editar y borrar', () => {
+  const nuevo = async (body = 'Primer comentario') => {
+    await addComment({ project_id: 'pr-web', target_type: 'project', target_id: 'pr-web', body })
+    const lista = await getComments('project', 'pr-web')
+    return lista[lista.length - 1]!
+  }
+  const envejecer = (id: string, minutos: number) => {
+    const c = getDb().comments.find((x) => x.id === id)!
+    c.created_at = new Date(Date.now() - minutos * 60_000).toISOString()
+  }
+
+  it('el autor edita dentro de 15 minutos y queda marcado como editado', async () => {
+    const c = await nuevo()
+    await editComment({ id: c.id, body: '  Texto corregido ' })
+    const editado = (await getComments('project', 'pr-web')).find((x) => x.id === c.id)!
+    expect(editado.body).toBe('Texto corregido')
+    expect(editado.edited_at).not.toBeNull()
+  })
+
+  it('después de 15 minutos ya no se puede editar ni borrar', async () => {
+    const c = await nuevo()
+    envejecer(c.id, 16)
+    await expect(editComment({ id: c.id, body: 'Tarde' })).rejects.toThrow(/15 minutos/)
+    await expect(deleteComment(c.id)).rejects.toThrow(/15 minutos/)
+  })
+
+  it('nadie más puede modificar el comentario de otro, ni el dev', async () => {
+    const c = await nuevo()
+    setSession(AXEL)
+    await expect(editComment({ id: c.id, body: 'Intruso' })).rejects.toThrow(/propios/)
+    await expect(deleteComment(c.id)).rejects.toThrow(/propios/)
+  })
+
+  it('no permite dejar el comentario vacío al editar', async () => {
+    const c = await nuevo()
+    await expect(editComment({ id: c.id, body: '   ' })).rejects.toBeInstanceOf(DomainError)
+  })
+
+  it('borrar lo oculta; si tiene respuestas, queda como "eliminado" sin texto', async () => {
+    const raiz = await nuevo('Pregunta')
+    setSession(AXEL)
+    await addComment({
+      project_id: 'pr-web',
+      target_type: 'project',
+      target_id: 'pr-web',
+      body: 'Respuesta',
+      parent_id: raiz.id,
+    })
+    setSession(ADMIN)
+    await deleteComment(raiz.id)
+    const lista = await getComments('project', 'pr-web')
+    const borrado = lista.find((x) => x.id === raiz.id)!
+    expect(borrado.deleted_at).not.toBeNull()
+    expect(borrado.body).toBe('')
+    expect(lista.some((x) => x.body === 'Respuesta')).toBe(true)
+
+    // Sin respuestas, desaparece por completo.
+    const suelto = await nuevo('Se va')
+    await deleteComment(suelto.id)
+    expect((await getComments('project', 'pr-web')).some((x) => x.id === suelto.id)).toBe(false)
   })
 })

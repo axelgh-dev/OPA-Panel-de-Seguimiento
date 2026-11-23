@@ -8,7 +8,7 @@
  *  - Las mutaciones validan rol y estado (como las RPC) y lanzan `DomainError`.
  */
 import { isAfter, isBefore, addDays, startOfDay } from 'date-fns'
-import { can } from '@/lib/permissions'
+import { canModifyComment, can } from '@/lib/permissions'
 import { computeProgress } from '@/lib/progress'
 import { getDb, resetDb as resetMockDb } from './mock/db'
 import type {
@@ -21,6 +21,7 @@ import type {
   CommentTarget,
   CommentWithAuthor,
   CreateChangeRequestInput,
+  EditCommentInput,
   DashboardKpis,
   DeliverableWithReviews,
   Milestone,
@@ -313,16 +314,19 @@ export function getComments(
 ): Promise<CommentWithAuthor[]> {
   return respond(() => {
     const ids = visibleProjectIds()
-    return getDb()
-      .comments.filter(
-        (c) =>
-          ids.has(c.project_id) &&
-          c.target_type === target_type &&
-          c.target_id === target_id &&
-          c.deleted_at === null,
-      )
+    const all = getDb().comments.filter(
+      (c) => ids.has(c.project_id) && c.target_type === target_type && c.target_id === target_id,
+    )
+    // Un comentario borrado que tiene respuestas se conserva (sin texto) para no dejarlas huérfanas.
+    const hasReplies = new Set(all.filter((c) => c.deleted_at === null).map((c) => c.parent_id))
+    return all
+      .filter((c) => c.deleted_at === null || hasReplies.has(c.id))
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map((c) => ({ ...c, author: profileById(c.author_id) }))
+      .map((c) => ({
+        ...c,
+        body: c.deleted_at === null ? c.body : '',
+        author: profileById(c.author_id),
+      }))
   })
 }
 
@@ -455,6 +459,35 @@ export function addComment(input: AddCommentInput): Promise<void> {
       input.target_id,
       body.slice(0, 80),
     )
+  })
+}
+
+function ownCommentOrThrow(id: string) {
+  const me = viewer()
+  const comment = getDb().comments.find((c) => c.id === id)
+  if (!comment || comment.deleted_at !== null) throw new DomainError('El comentario no existe.')
+  if (comment.author_id !== me.id)
+    throw new DomainError('Solo puedes modificar tus propios comentarios.')
+  if (!canModifyComment(me.role, me.id, comment)) {
+    throw new DomainError('Ya pasaron más de 15 minutos: el comentario ya no se puede modificar.')
+  }
+  return comment
+}
+
+export function editComment(input: EditCommentInput): Promise<void> {
+  return respond(() => {
+    const comment = ownCommentOrThrow(input.id)
+    const body = input.body.trim()
+    if (body.length === 0) throw new DomainError('Escribe un comentario.')
+    comment.body = body
+    comment.edited_at = new Date().toISOString()
+  })
+}
+
+/** Borrado lógico (`deleted_at`), igual que en el modelo de datos. */
+export function deleteComment(id: string): Promise<void> {
+  return respond(() => {
+    ownCommentOrThrow(id).deleted_at = new Date().toISOString()
   })
 }
 

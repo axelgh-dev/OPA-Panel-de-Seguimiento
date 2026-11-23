@@ -1,4 +1,4 @@
-import type { DeliverableStatus, UserRole } from '@/data/types'
+import type { Comment, DeliverableStatus, UserRole } from '@/data/types'
 
 /**
  * Matriz de permisos de docs/REQUERIMIENTOS.md §3.1.
@@ -54,4 +54,26 @@ export function can(role: UserRole, action: Action, entity?: PermissionEntity): 
     return false
   }
   return true
+}
+
+/** Ventana para editar o borrar un comentario propio (§3.1). */
+export const COMMENT_EDIT_WINDOW_MS = 15 * 60 * 1000
+
+export function isWithinCommentWindow(createdAt: string, now: Date = new Date()): boolean {
+  return now.getTime() - new Date(createdAt).getTime() <= COMMENT_EDIT_WINDOW_MS
+}
+
+/** Solo el autor puede editar o borrar su comentario, y solo durante los primeros 15 minutos. */
+export function canModifyComment(
+  role: UserRole,
+  userId: string,
+  comment: Pick<Comment, 'author_id' | 'created_at' | 'deleted_at'>,
+  now: Date = new Date(),
+): boolean {
+  return (
+    can(role, 'comment.edit_own') &&
+    comment.author_id === userId &&
+    comment.deleted_at === null &&
+    isWithinCommentWindow(comment.created_at, now)
+  )
 }
