@@ -92,6 +92,11 @@ begin
     return new;
   end if;
   if old.status = 'aprobado' then
+    -- Un DELETE en cascada (al borrar todo el proyecto, profundidad > 1) sí se permite;
+    -- borrar o modificar el entregable directamente, no.
+    if tg_op = 'DELETE' and pg_trigger_depth() > 1 then
+      return old;
+    end if;
     raise exception 'Un entregable aprobado no se puede modificar.';
   end if;
   if tg_op = 'DELETE' then

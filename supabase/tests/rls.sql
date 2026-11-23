@@ -291,5 +291,13 @@ select tests.works('completar un hito escribe completed_at',
 select tests.count_is('completed_at se llena y hay evento hito_completado',
   $q$select 1 from public.milestones m where id = '20000000-0000-0000-0000-000000000002' and completed_at is not null$q$, 1);
 
+-- Borrar el proyecto completo (cascada) sí se permite aunque tenga entregables aprobados.
+select tests.login('00000000-0000-0000-0000-0000000000d1');
+select tests.works('dev borra un proyecto completo aunque tenga entregables aprobados',
+  $q$delete from public.projects where id = '10000000-0000-0000-0000-000000000001'$q$);
+select tests.count_is('la cascada se llevó los entregables del proyecto',
+  $q$select 1 from public.deliverables where project_id = '10000000-0000-0000-0000-000000000001'$q$, 0);
+select tests.logout();
+
 do $$ begin raise notice 'RLS OK'; end $$;
 rollback;
