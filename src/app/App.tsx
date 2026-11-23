@@ -1,9 +1,11 @@
-// Marcador temporal del scaffold: se reemplaza por el router y los providers en el Paso 4.
+import { RouterProvider } from 'react-router-dom'
+import { AppProviders } from './providers'
+import { router } from './router'
+
 export function App() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-3 p-6">
-      <h1 className="text-3xl">OP&amp;A · Panel de Seguimiento</h1>
-      <p className="text-muted-foreground">Maqueta en construcción.</p>
-    </main>
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>
   )
 }
