@@ -8,6 +8,9 @@ const STORAGE_KEY = 'opa.viewAs'
 const DEFAULT_USER_ID = 'u-admin'
 
 function readStoredUserId(users: { id: string }[]): string {
+  // Enlace de demo: ?as=axel | admin | ej1 | ej2 (tiene prioridad sobre lo guardado).
+  const fromUrl = new URLSearchParams(window.location.search).get('as')
+  if (fromUrl && users.some((u) => u.id === `u-${fromUrl}`)) return `u-${fromUrl}`
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored && users.some((u) => u.id === stored)) return stored

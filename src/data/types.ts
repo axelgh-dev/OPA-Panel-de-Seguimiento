@@ -177,8 +177,12 @@ export interface ProjectAlerts {
   unread_comments: number
 }
 
+/** Hito reducido para dibujar la barra de avance segmentada por peso. */
+export type MilestoneSegment = Pick<Milestone, 'id' | 'name' | 'weight' | 'status'>
+
 /** Equivale a la vista `project_overview` (§7.2). */
 export interface ProjectOverview extends Project {
+  segments: MilestoneSegment[]
   /** 0–100, calculado por peso de hitos o `progress_override`. */
   progress: number
   current_milestone: Milestone | null

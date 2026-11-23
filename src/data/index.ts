@@ -169,6 +169,7 @@ function buildOverview(p: Project): ProjectOverview {
 
   return {
     ...p,
+    segments: ms.map(({ id, name, weight, status }) => ({ id, name, weight, status })),
     progress: computeProgress(ms, p.progress_override),
     current_milestone,
     next_milestone,
