@@ -22,10 +22,6 @@ export function formatDateTime(value: string | Date): string {
   return format(toDate(value), 'd MMM yyyy, HH:mm', { locale: es }).replace('.', '')
 }
 
-function plural(n: number, singular: string, pluralForm: string): string {
-  return `${n} ${n === 1 ? singular : pluralForm}`
-}
-
 /** Para fechas sin hora: `hoy`, `mañana`, `en 5 días`, `ayer`, `hace 3 días`. */
 export function formatDaysFromNow(value: string | Date, now: Date = new Date()): string {
   const days = differenceInCalendarDays(toDate(value), now)
@@ -54,9 +50,4 @@ export function formatRelative(value: string | Date, now: Date = new Date()): st
   if (days === 1) return 'ayer'
   if (days < 30) return `hace ${days} días`
   return formatDate(date)
-}
-
-/** `3 de 5 hitos` */
-export function formatCount(n: number, singular: string, pluralForm: string): string {
-  return plural(n, singular, pluralForm)
 }

@@ -171,7 +171,7 @@ export type ActivityAction =
   | 'prioridad_cambiada'
 
 // ---------- Vistas de lectura ----------
-export interface ProjectAlerts {
+interface ProjectAlerts {
   pending_deliverables: number
   open_change_requests: number
   unread_comments: number

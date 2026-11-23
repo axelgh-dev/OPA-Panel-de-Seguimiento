@@ -60,16 +60,13 @@ async function respond<T>(compute: () => T): Promise<T> {
 }
 
 // SUPUESTO: Admin OPA es el usuario por defecto de la maqueta.
-let sessionUserId = 'u-admin'
+export const DEFAULT_SESSION_USER_ID = 'u-admin'
+let sessionUserId = DEFAULT_SESSION_USER_ID
 
 export function setSession(userId: string): void {
   if (!getDb().profiles.some((p) => p.id === userId))
     throw new Error(`Usuario desconocido: ${userId}`)
   sessionUserId = userId
-}
-
-export function getSessionUserId(): string {
-  return sessionUserId
 }
 
 /** Solo fase 1: lista síncrona para el selector "Ver como". En fase 2 desaparece. */
@@ -218,10 +215,6 @@ export function getProject(slug: string): Promise<ProjectOverview | null> {
     const p = visibleProjects().find((x) => x.slug === slug)
     return p ? buildOverview(p) : null
   })
-}
-
-export function getProjectDescription(slug: string): Promise<string | null> {
-  return respond(() => visibleProjects().find((x) => x.slug === slug)?.description_md ?? null)
 }
 
 export function getMilestones(projectId: string): Promise<Milestone[]> {

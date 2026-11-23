@@ -9,13 +9,8 @@ import { HealthChip, PriorityLabel, ProjectStatusChip } from '@/components/share
 import { RoleGate } from '@/components/shared/RoleGate'
 import { SegmentedProgress } from '@/components/shared/SegmentedProgress'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PRIORITY, PROJECT_TABS, TAB_LABEL } from '@/lib/labels'
@@ -56,11 +51,7 @@ function PriorityControl({ project }: { project: ProjectOverview }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(PRIORITY).map(([k, m]) => (
-            <SelectItem key={k} value={k}>
-              {m.label}
-            </SelectItem>
-          ))}
+          <MetaSelectItems map={PRIORITY} />
         </SelectContent>
       </Select>
     </RoleGate>

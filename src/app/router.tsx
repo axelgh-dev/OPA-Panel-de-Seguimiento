@@ -8,13 +8,12 @@ import { GlobalUpdatesPage } from '@/features/updates/GlobalUpdatesPage'
 import { AppLayout } from './AppLayout'
 import { NotFoundPage } from './NotFoundPage'
 
-export const routes = [
+const routes = [
   { path: '/login', element: <LoginPage /> },
   {
     element: <AppLayout />,
     children: [
       { index: true, element: <DashboardPage /> },
-      // SUPUESTO: el dashboard ya es la lista de proyectos.
       { path: 'proyectos', element: <Navigate to="/" replace /> },
       { path: 'proyectos/:slug', element: <ProjectDetailPage /> },
       { path: 'bitacora', element: <GlobalUpdatesPage /> },

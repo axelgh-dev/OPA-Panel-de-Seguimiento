@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { Textarea } from '@/components/ui/textarea'
 import { useProjects } from '@/features/dashboard/hooks'
 import { PRIORITY } from '@/lib/labels'
@@ -174,11 +175,7 @@ function ChangeRequestFormBody({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {Object.entries(PRIORITY).map(([k, m]) => (
-                    <SelectItem key={k} value={k}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
+                  <MetaSelectItems map={PRIORITY} />
                 </SelectContent>
               </Select>
             </FormItem>

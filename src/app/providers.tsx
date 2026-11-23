@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { SessionProvider } from './SessionProvider'
 
 export function AppProviders({
@@ -18,9 +17,7 @@ export function AppProviders({
   )
   return (
     <QueryClientProvider client={client}>
-      <SessionProvider initialUserId={initialUserId}>
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-      </SessionProvider>
+      <SessionProvider initialUserId={initialUserId}>{children}</SessionProvider>
     </QueryClientProvider>
   )
 }

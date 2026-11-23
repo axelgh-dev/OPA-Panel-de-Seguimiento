@@ -5,13 +5,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { RoleGate } from '@/components/shared/RoleGate'
 import { TaskStatusChip } from '@/components/shared/chips'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TASK_STATUS } from '@/lib/labels'
 import { useSession } from '@/lib/session'
@@ -58,11 +53,7 @@ function TaskRow({ task }: { task: Task }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
-            {Object.entries(TASK_STATUS).map(([k, m]) => (
-              <SelectItem key={k} value={k} className="text-xs">
-                {m.label}
-              </SelectItem>
-            ))}
+            <MetaSelectItems map={TASK_STATUS} className="text-xs" />
           </SelectContent>
         </Select>
       </RoleGate>

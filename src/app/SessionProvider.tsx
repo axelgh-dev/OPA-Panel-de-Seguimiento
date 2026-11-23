@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { listDemoUsers, setSession } from '@/data'
+import { DEFAULT_SESSION_USER_ID, listDemoUsers, setSession } from '@/data'
 import { SessionContext } from '@/lib/session'
 
 const STORAGE_KEY = 'opa.viewAs'
-// SUPUESTO: Admin OPA es el usuario por defecto de la maqueta.
-const DEFAULT_USER_ID = 'u-admin'
 
 function readStoredUserId(users: { id: string }[]): string {
   // Enlace de demo: ?as=axel | admin | ej1 | ej2 (tiene prioridad sobre lo guardado).
@@ -17,7 +15,7 @@ function readStoredUserId(users: { id: string }[]): string {
   } catch {
     // localStorage no disponible: se usa el valor por defecto.
   }
-  return DEFAULT_USER_ID
+  return DEFAULT_SESSION_USER_ID
 }
 
 /** Fase 1: la sesión viene del selector "Ver como". En fase 2 vendrá de Supabase Auth. */

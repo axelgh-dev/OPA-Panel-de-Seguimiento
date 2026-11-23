@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { PRIORITY, PROJECT_STATUS } from '@/lib/labels'
 
 const SORTS: { value: ProjectSort; label: string }[] = [
@@ -51,11 +52,7 @@ export function ProjectFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los estatus</SelectItem>
-            {Object.entries(PROJECT_STATUS).map(([k, m]) => (
-              <SelectItem key={k} value={k}>
-                {m.label}
-              </SelectItem>
-            ))}
+            <MetaSelectItems map={PROJECT_STATUS} />
           </SelectContent>
         </Select>
 
@@ -68,11 +65,7 @@ export function ProjectFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Toda prioridad</SelectItem>
-            {Object.entries(PRIORITY).map(([k, m]) => (
-              <SelectItem key={k} value={k}>
-                Prioridad {m.label.toLowerCase()}
-              </SelectItem>
-            ))}
+            <MetaSelectItems map={PRIORITY} />
           </SelectContent>
         </Select>
       </div>

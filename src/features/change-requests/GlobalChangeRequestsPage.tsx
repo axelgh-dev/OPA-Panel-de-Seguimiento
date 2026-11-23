@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { CHANGE_REQ_STATUS } from '@/lib/labels'
 import { ChangeRequestDialog } from './ChangeRequestForm'
 import { ChangeRequestList } from './ChangeRequestList'
@@ -31,11 +32,7 @@ export function GlobalChangeRequestsPage() {
               </SelectTrigger>
               <SelectContent align="end">
                 <SelectItem value="todas">Todos los estatus</SelectItem>
-                {Object.entries(CHANGE_REQ_STATUS).map(([k, m]) => (
-                  <SelectItem key={k} value={k}>
-                    {m.label}
-                  </SelectItem>
-                ))}
+                <MetaSelectItems map={CHANGE_REQ_STATUS} />
               </SelectContent>
             </Select>
             <RoleGate action="change_request.create">

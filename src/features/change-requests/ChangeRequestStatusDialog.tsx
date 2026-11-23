@@ -20,13 +20,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
 import { Textarea } from '@/components/ui/textarea'
 import { CHANGE_REQ_STATUS } from '@/lib/labels'
 import { useSetChangeRequestStatus } from './hooks'
@@ -85,11 +80,7 @@ export function ChangeRequestStatusDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {Object.entries(CHANGE_REQ_STATUS).map(([k, m]) => (
-                        <SelectItem key={k} value={k}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
+                      <MetaSelectItems map={CHANGE_REQ_STATUS} />
                     </SelectContent>
                   </Select>
                 </FormItem>

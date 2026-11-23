@@ -34,10 +34,10 @@ export const HEALTH: Record<ProjectHealth, Meta> = {
   retrasado: { label: 'Retrasado', tone: 'danger' },
 }
 
-export const PRIORITY: Record<PriorityLevel, Meta> = {
-  alta: { label: 'Alta', tone: 'neutral' },
-  media: { label: 'Media', tone: 'neutral' },
-  baja: { label: 'Baja', tone: 'neutral' },
+export const PRIORITY: Record<PriorityLevel, { label: string }> = {
+  alta: { label: 'Alta' },
+  media: { label: 'Media' },
+  baja: { label: 'Baja' },
 }
 
 export const MILESTONE_STATUS: Record<MilestoneStatus, Meta> = {

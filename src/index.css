@@ -87,12 +87,6 @@
   }
 }
 
-@layer utilities {
-  .tabular {
-    font-variant-numeric: tabular-nums;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

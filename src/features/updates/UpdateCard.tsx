@@ -4,6 +4,7 @@ import { DateLabel } from '@/components/shared/DateLabel'
 import { Markdown } from '@/components/shared/Markdown'
 import { UpdateTypeChip } from '@/components/shared/chips'
 import { UserAvatar } from '@/components/shared/UserAvatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { CommentsToggle } from '@/features/comments/CommentsToggle'
 
 export function UpdateCard({
@@ -56,9 +57,9 @@ export function UpdateListSkeleton() {
     <div className="space-y-4" aria-hidden>
       {[0, 1, 2].map((i) => (
         <div key={i} className="space-y-3 rounded-xl border bg-card p-5">
-          <div className="h-5 w-20 animate-pulse rounded-full bg-muted" />
-          <div className="h-6 w-2/3 animate-pulse rounded bg-muted" />
-          <div className="h-16 w-full animate-pulse rounded bg-muted" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ))}
     </div>

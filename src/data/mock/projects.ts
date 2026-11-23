@@ -5,7 +5,7 @@ export const PORTAL = 'pr-portal'
 export const CONCILIA = 'pr-concilia'
 export const SAT = 'pr-sat'
 export const WEB = 'pr-web'
-export const TABLERO = 'pr-tablero'
+const TABLERO = 'pr-tablero'
 
 export const projects: Project[] = [
   {
