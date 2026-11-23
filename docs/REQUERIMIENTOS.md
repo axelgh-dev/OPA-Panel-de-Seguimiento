@@ -75,7 +75,6 @@ Hay solo **dos roles**. Los tres usuarios del despacho tienen exactamente los mi
 - Resumen superior (KPIs): proyectos activos, entregas en los próximos 14 días, entregables pendientes de aprobación, solicitudes de cambio abiertas.
 - Grid de **tarjetas por proyecto** con: nombre, estatus (chip de color), salud (en tiempo / en riesgo / retrasado), barra de % avance, fase actual, próxima entrega con fecha y días restantes, contador de alertas (entregables por aprobar, comentarios sin leer, solicitudes abiertas).
 - Filtros: estatus, prioridad, búsqueda por nombre. Orden: prioridad, próxima entrega, último movimiento.
-- Sección "Requiere tu atención" para usuarios OPA: entregables esperando aprobación. Para dev: solicitudes de cambio nuevas y entregables rechazados.
 
 ### 4.2 Detalle de proyecto
 Encabezado con nombre, descripción corta, estatus, salud, % avance, fechas de inicio y entrega objetivo, prioridad. Pestañas:

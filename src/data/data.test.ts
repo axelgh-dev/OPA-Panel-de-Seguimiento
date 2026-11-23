@@ -2,7 +2,7 @@ import {
   DomainError,
   addComment,
   createChangeRequest,
-  getDashboardSummary,
+  getDashboardKpis,
   getDeliverables,
   getProject,
   getProjects,
@@ -137,25 +137,17 @@ describe('solicitudes de cambio y comentarios', () => {
   })
 })
 
-describe('resumen del dashboard', () => {
-  it('KPIs coherentes con los datos', async () => {
-    const { kpis } = await getDashboardSummary()
+describe('KPIs del dashboard', () => {
+  it('son coherentes con los datos', async () => {
+    const kpis = await getDashboardKpis()
     expect(kpis.active_projects).toBe(4)
     expect(kpis.pending_approvals).toBe(4)
     expect(kpis.upcoming_deliveries).toBe(3)
+    expect(kpis.open_change_requests).toBe(6)
   })
 
-  it('"Requiere tu atención" depende del rol', async () => {
-    const opa = (await getDashboardSummary()).attention.map((a) => a.kind)
-    expect(opa).toContain('deliverable_review')
-    expect(opa).toContain('change_request_reply')
-    expect(opa).not.toContain('change_request_new')
-
+  it('dev cuenta también el proyecto en borrador', async () => {
     setSession(AXEL)
-    const dev = (await getDashboardSummary()).attention.map((a) => a.kind)
-    expect(dev).toContain('change_request_new')
-    expect(dev).toContain('deliverable_rejected')
-    expect(dev).toContain('new_opa_comments')
-    expect(dev).not.toContain('deliverable_review')
+    expect((await getDashboardKpis()).active_projects).toBe(5)
   })
 })

@@ -16,13 +16,12 @@ import type {
   ActivityEvent,
   ActivityWithActor,
   AddCommentInput,
-  AttentionItem,
   ChangeRequest,
   ChangeRequestWithMeta,
   CommentTarget,
   CommentWithAuthor,
   CreateChangeRequestInput,
-  DashboardSummary,
+  DashboardKpis,
   DeliverableWithReviews,
   Milestone,
   PriorityLevel,
@@ -346,21 +345,15 @@ export function getActivity(projectId: string): Promise<ActivityWithActor[]> {
   })
 }
 
-export function getDashboardSummary(): Promise<DashboardSummary> {
+export function getDashboardKpis(): Promise<DashboardKpis> {
   return respond(() => {
     const db = getDb()
-    const me = viewer()
     const projects = visibleProjects()
     const ids = new Set(projects.map((p) => p.id))
-    const byId = new Map(projects.map((p) => [p.id, p]))
     const today = startOfDay(new Date())
     const horizon = addDays(today, 14)
 
-    const deliverables = db.deliverables.filter(
-      (d) => ids.has(d.project_id) && (me.role === 'dev' || d.status !== 'borrador'),
-    )
-
-    const kpis = {
+    return {
       active_projects: projects.filter((p) =>
         ['planeacion', 'en_progreso', 'en_revision'].includes(p.status),
       ).length,
@@ -369,105 +362,13 @@ export function getDashboardSummary(): Promise<DashboardSummary> {
         const due = new Date(`${m.due_date}T00:00:00`)
         return !isBefore(due, today) && !isAfter(due, horizon)
       }).length,
-      pending_approvals: deliverables.filter((d) => d.status === 'en_revision').length,
+      pending_approvals: db.deliverables.filter(
+        (d) => ids.has(d.project_id) && d.status === 'en_revision',
+      ).length,
       open_change_requests: db.changeRequests.filter(
         (c) => ids.has(c.project_id) && c.status !== 'rechazada' && c.status !== 'completada',
       ).length,
     }
-
-    const attention: AttentionItem[] = []
-    const ref = (projectId: string) => {
-      const p = byId.get(projectId)!
-      return { project_slug: p.slug, project_name: p.name }
-    }
-
-    if (me.role === 'opa') {
-      for (const d of deliverables.filter((x) => x.status === 'en_revision')) {
-        attention.push({
-          id: `att-dl-${d.id}`,
-          kind: 'deliverable_review',
-          title: d.title,
-          detail: 'Entregable esperando tu aprobación',
-          ...ref(d.project_id),
-          tab: 'entregables',
-          at: d.submitted_at ?? '',
-        })
-      }
-      // SUPUESTO: una solicitud "en análisis" con estimación de impacto ya fue respondida por
-      // el desarrollador y espera la decisión de OPA.
-      for (const c of db.changeRequests.filter(
-        (x) => ids.has(x.project_id) && x.status === 'en_analisis' && x.impact_note !== null,
-      )) {
-        attention.push({
-          id: `att-cr-${c.id}`,
-          kind: 'change_request_reply',
-          title: c.title,
-          detail: 'Axel respondió tu solicitud y espera tu decisión',
-          ...ref(c.project_id),
-          tab: 'solicitudes',
-          at: c.updated_at,
-        })
-      }
-    } else {
-      for (const c of db.changeRequests.filter(
-        (x) => ids.has(x.project_id) && x.status === 'nueva',
-      )) {
-        attention.push({
-          id: `att-cr-${c.id}`,
-          kind: 'change_request_new',
-          title: c.title,
-          detail: 'Solicitud de cambio nueva',
-          ...ref(c.project_id),
-          tab: 'solicitudes',
-          at: c.created_at,
-        })
-      }
-      for (const d of deliverables.filter(
-        (x) => x.status === 'rechazado' || x.status === 'cambios_solicitados',
-      )) {
-        attention.push({
-          id: `att-dl-${d.id}`,
-          kind: 'deliverable_rejected',
-          title: d.title,
-          detail:
-            d.status === 'rechazado'
-              ? 'Entregable rechazado'
-              : 'Entregable con cambios solicitados',
-          ...ref(d.project_id),
-          tab: 'entregables',
-          at: d.decided_at ?? '',
-        })
-      }
-      for (const p of projects) {
-        const fresh = db.comments.filter(
-          (c) =>
-            c.project_id === p.id &&
-            c.deleted_at === null &&
-            profileById(c.author_id).role === 'opa' &&
-            c.created_at > seenAt(me.id, p.id),
-        )
-        if (fresh.length > 0) {
-          attention.push({
-            id: `att-cm-${p.id}`,
-            kind: 'new_opa_comments',
-            title: p.name,
-            detail:
-              fresh.length === 1
-                ? '1 comentario nuevo de OPA'
-                : `${fresh.length} comentarios nuevos de OPA`,
-            ...ref(p.id),
-            tab: 'actividad',
-            at: fresh
-              .map((c) => c.created_at)
-              .sort()
-              .at(-1)!,
-          })
-        }
-      }
-    }
-
-    attention.sort((a, b) => b.at.localeCompare(a.at))
-    return { kpis, attention }
   })
 }
 

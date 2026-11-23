@@ -7,11 +7,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
-import { AttentionBlock } from './AttentionBlock'
 import { KpiBand } from './KpiBand'
 import { ProjectCard, ProjectCardSkeleton } from './ProjectCard'
 import { ProjectFilters } from './ProjectFilters'
-import { useDashboardSummary, useProjects } from './hooks'
+import { useDashboardKpis, useProjects } from './hooks'
 
 const DEFAULT_FILTERS: Filters = {
   status: 'todos',
@@ -23,7 +22,7 @@ const DEFAULT_FILTERS: Filters = {
 export function DashboardPage() {
   const { user } = useSession()
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const summary = useDashboardSummary()
+  const kpis = useDashboardKpis()
   const projects = useProjects(filters)
 
   const isFiltering =
@@ -38,14 +37,11 @@ export function DashboardPage() {
         description={capitalize(formatLongDate(new Date()))}
       />
 
-      <KpiBand kpis={summary.data?.kpis} />
-
-      <AttentionBlock
-        items={summary.data?.attention}
-        isLoading={summary.isLoading}
-        isError={summary.isError}
-        onRetry={() => void summary.refetch()}
-      />
+      {kpis.isError ? (
+        <ErrorState onRetry={() => void kpis.refetch()} />
+      ) : (
+        <KpiBand kpis={kpis.data} />
+      )}
 
       <section aria-labelledby="proyectos" className="space-y-4">
         <h2 id="proyectos" className="text-xl">

@@ -223,30 +223,6 @@ export interface DashboardKpis {
   open_change_requests: number
 }
 
-export type AttentionKind =
-  | 'deliverable_review'
-  | 'change_request_reply'
-  | 'change_request_new'
-  | 'deliverable_rejected'
-  | 'new_opa_comments'
-
-export interface AttentionItem {
-  id: string
-  kind: AttentionKind
-  title: string
-  detail: string
-  project_slug: string
-  project_name: string
-  /** Pestaña del detalle a la que lleva. */
-  tab: ProjectTab
-  at: string
-}
-
-export interface DashboardSummary {
-  kpis: DashboardKpis
-  attention: AttentionItem[]
-}
-
 export type ProjectTab =
   'resumen' | 'tareas' | 'entregables' | 'bitacora' | 'solicitudes' | 'actividad'
 
