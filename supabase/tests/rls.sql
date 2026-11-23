@@ -209,6 +209,14 @@ select tests.fails('OPA no escribe recibos de otro usuario',
   $q$insert into public.read_receipts (user_id, target_type, target_id) values ('00000000-0000-0000-0000-0000000000a2', 'project', '10000000-0000-0000-0000-000000000001')$q$, 'row-level security');
 select tests.logout();
 
+-- Un usuario nuevo no ve como "sin leer" lo anterior a su fecha de alta.
+select tests.count_is('sin marca de lectura, lo anterior al alta no cuenta como sin leer',
+  $q$select 1 from public.project_overview where unread_comments > 0$q$, 0);
+select tests.logout();
+set local role anon;
+select tests.count_is('ping() responde sin sesión', 'select public.ping()', 1);
+reset role;
+
 -- Pasan 20 minutos: el comentario de Ejecutivo 1 ya no se puede editar.
 insert into public.comments (id, project_id, target_type, target_id, author_id, body, created_at) values
   ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'project',

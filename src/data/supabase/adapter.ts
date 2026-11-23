@@ -99,12 +99,20 @@ async function loadOverviews(): Promise<{ overviews: ProjectOverview[]; mileston
   return { overviews: (rows as OverviewRow[]).map((r) => toOverview(r, ms)), milestones: ms }
 }
 
-/** Fecha de lectura por proyecto del usuario actual (para "nuevo" y comentarios sin leer). */
-async function readAtByProject(): Promise<Map<string, string>> {
-  const rows = await unwrap(
-    supabase.from('read_receipts').select('target_id, read_at').eq('target_type', 'project'),
-  )
-  return new Map(rows.map((r) => [r.target_id, r.read_at]))
+/**
+ * Fecha de "visto por última vez" por proyecto del usuario actual (para "nuevo" y sin leer).
+ * Sin marca de lectura, vale la fecha de alta del usuario: al primer login no ve todo como nuevo.
+ */
+async function readAtByProject(): Promise<{ readAt: Map<string, string>; fallback: string }> {
+  const [rows, me] = await Promise.all([
+    unwrap(supabase.from('read_receipts').select('target_id, read_at').eq('target_type', 'project')),
+    myId(),
+  ])
+  const profile = await unwrap(supabase.from('profiles').select('created_at').eq('id', me).maybeSingle())
+  return {
+    readAt: new Map(rows.map((r) => [r.target_id, r.read_at])),
+    fallback: profile?.created_at ?? '',
+  }
 }
 
 async function countComments(
@@ -189,7 +197,11 @@ export const adapter: DataAdapter = {
       )
       .order('published_at', { ascending: false })
     if (opts.projectId) query = query.eq('project_id', opts.projectId)
-    const [rows, me, readAt] = await Promise.all([unwrap(query), myId(), readAtByProject()])
+    const [rows, me, { readAt, fallback }] = await Promise.all([
+      unwrap(query),
+      myId(),
+      readAtByProject(),
+    ])
     const counts = await countComments(
       'update',
       rows.map((r) => r.id),
@@ -203,7 +215,7 @@ export const adapter: DataAdapter = {
         project_name: project.name,
         project_slug: project.slug,
         comment_count: counts.get(r.id) ?? 0,
-        is_new: r.author_id !== me && r.published_at > (readAt.get(r.project_id) ?? ''),
+        is_new: r.author_id !== me && r.published_at > (readAt.get(r.project_id) ?? fallback),
       }
     })
   },
