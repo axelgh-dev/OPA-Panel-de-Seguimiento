@@ -1,6 +1,8 @@
 import { Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { dataMode } from '@/data'
 import { AppLayout } from './AppLayout'
 import { InitialFallback } from './InitialFallback'
+import { RequireAuth } from './RequireAuth'
 
 /** Cada página se descarga solo al visitarla (code splitting por ruta). */
 const routes: RouteObject[] = [
@@ -9,8 +11,31 @@ const routes: RouteObject[] = [
     HydrateFallback: InitialFallback,
     lazy: async () => ({ Component: (await import('@/features/auth/LoginPage')).LoginPage }),
   },
+  // Recuperación de contraseña: solo existe con Supabase.
+  ...(dataMode === 'supabase'
+    ? ([
+        {
+          path: '/recuperar',
+          HydrateFallback: InitialFallback,
+          lazy: async () => ({
+            Component: (await import('@/features/auth/ForgotPasswordPage')).ForgotPasswordPage,
+          }),
+        },
+        {
+          path: '/restablecer',
+          HydrateFallback: InitialFallback,
+          lazy: async () => ({
+            Component: (await import('@/features/auth/ResetPasswordPage')).ResetPasswordPage,
+          }),
+        },
+      ] satisfies RouteObject[])
+    : []),
   {
-    element: <AppLayout />,
+    element: (
+      <RequireAuth>
+        <AppLayout />
+      </RequireAuth>
+    ),
     HydrateFallback: InitialFallback,
     children: [
       {

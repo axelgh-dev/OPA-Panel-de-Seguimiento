@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DEFAULT_SESSION_USER_ID, listDemoUsers, setSession } from '@/data'
+import { dataMode, getDemo } from '@/data'
+import { AuthProvider } from './AuthProvider'
 import { SessionContext } from '@/lib/session'
 
 const STORAGE_KEY = 'opa.viewAs'
@@ -15,10 +16,13 @@ function readStoredUserId(users: { id: string }[]): string {
   } catch {
     // localStorage no disponible: se usa el valor por defecto.
   }
-  return DEFAULT_SESSION_USER_ID
+  return getDemo().defaultUserId
 }
 
-/** Fase 1: la sesión viene del selector "Ver como". En fase 2 vendrá de Supabase Auth. */
+/**
+ * Con Supabase la sesión es real (`AuthProvider` + `RequireAuth`). En modo mock la sesión viene del
+ * selector "Ver como" de la demo.
+ */
 export function SessionProvider({
   children,
   initialUserId,
@@ -26,17 +30,29 @@ export function SessionProvider({
   children: ReactNode
   initialUserId?: string
 }) {
+  if (dataMode === 'supabase') return <AuthProvider>{children}</AuthProvider>
+  return <DemoSessionProvider initialUserId={initialUserId}>{children}</DemoSessionProvider>
+}
+
+function DemoSessionProvider({
+  children,
+  initialUserId,
+}: {
+  children: ReactNode
+  initialUserId?: string
+}) {
   const queryClient = useQueryClient()
-  const users = useMemo(() => listDemoUsers(), [])
+  const demo = getDemo()
+  const users = useMemo(() => demo.listDemoUsers(), [demo])
   const [userId, setUserIdState] = useState(() => {
     const id = initialUserId ?? readStoredUserId(users)
-    setSession(id) // antes del primer render de los hijos, para que sus consultas usen este usuario
+    demo.setSession(id) // antes del primer render de los hijos, para que sus consultas usen este usuario
     return id
   })
 
   const setUserId = useCallback(
     (id: string) => {
-      setSession(id)
+      demo.setSession(id)
       try {
         localStorage.setItem(STORAGE_KEY, id)
       } catch {
@@ -45,7 +61,7 @@ export function SessionProvider({
       setUserIdState(id)
       void queryClient.invalidateQueries()
     },
-    [queryClient],
+    [queryClient, demo],
   )
 
   const value = useMemo(

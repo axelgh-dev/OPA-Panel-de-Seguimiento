@@ -57,7 +57,9 @@ export function CommentItem({
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm">
           <span className="font-medium">{comment.author.full_name}</span>
-          <span className="text-muted-foreground"> · {comment.author.job_title} · </span>
+          <span className="text-muted-foreground">
+            {comment.author.job_title ? ` · ${comment.author.job_title} · ` : ' · '}
+          </span>
           <DateLabel value={comment.created_at} mode="relative" className="text-muted-foreground" />
           {comment.edited_at && !deleted && (
             <span className="text-muted-foreground"> · editado</span>

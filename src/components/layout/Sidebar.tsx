@@ -29,7 +29,7 @@ const NAV: NavItem[] = [
 ]
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { user } = useSession()
+  const { user, signOut } = useSession()
   return (
     <div className="flex h-full flex-col bg-navy-900 text-white">
       <div className="px-6 pb-6 pt-7">
@@ -77,17 +77,30 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <UserAvatar user={user} size="lg" className="bg-white/10 text-white" />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{user.full_name}</p>
-            <p className="truncate text-xs text-white/70">{user.job_title}</p>
+            <p className="truncate text-xs text-white/70">
+              {user.job_title || (user.role === 'dev' ? 'Desarrollador' : 'OP&A')}
+            </p>
           </div>
         </div>
-        <NavLink
-          to="/login"
-          onClick={onNavigate}
-          className="mt-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/70 hover:text-white focus-visible:ring-white focus-visible:ring-offset-navy-900"
-        >
-          <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Cerrar sesión
-        </NavLink>
+        {signOut ? (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="mt-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/70 hover:text-white focus-visible:ring-white focus-visible:ring-offset-navy-900"
+          >
+            <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Cerrar sesión
+          </button>
+        ) : (
+          <NavLink
+            to="/login"
+            onClick={onNavigate}
+            className="mt-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/70 hover:text-white focus-visible:ring-white focus-visible:ring-offset-navy-900"
+          >
+            <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Cerrar sesión
+          </NavLink>
+        )}
       </div>
     </div>
   )
