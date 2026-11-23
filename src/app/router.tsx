@@ -1,25 +1,55 @@
-import { Navigate, createBrowserRouter } from 'react-router-dom'
-import { AdminUsersPage } from '@/features/admin/AdminUsersPage'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { GlobalChangeRequestsPage } from '@/features/change-requests/GlobalChangeRequestsPage'
-import { DashboardPage } from '@/features/dashboard/DashboardPage'
-import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage'
-import { GlobalUpdatesPage } from '@/features/updates/GlobalUpdatesPage'
+import { Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { AppLayout } from './AppLayout'
-import { NotFoundPage } from './NotFoundPage'
+import { InitialFallback } from './InitialFallback'
 
-const routes = [
-  { path: '/login', element: <LoginPage /> },
+/** Cada página se descarga solo al visitarla (code splitting por ruta). */
+const routes: RouteObject[] = [
+  {
+    path: '/login',
+    HydrateFallback: InitialFallback,
+    lazy: async () => ({ Component: (await import('@/features/auth/LoginPage')).LoginPage }),
+  },
   {
     element: <AppLayout />,
+    HydrateFallback: InitialFallback,
     children: [
-      { index: true, element: <DashboardPage /> },
+      {
+        index: true,
+        lazy: async () => ({
+          Component: (await import('@/features/dashboard/DashboardPage')).DashboardPage,
+        }),
+      },
+      // El dashboard ya es la lista de proyectos; /proyectos redirige ahí (ver SUPUESTO en Sidebar).
       { path: 'proyectos', element: <Navigate to="/" replace /> },
-      { path: 'proyectos/:slug', element: <ProjectDetailPage /> },
-      { path: 'bitacora', element: <GlobalUpdatesPage /> },
-      { path: 'solicitudes', element: <GlobalChangeRequestsPage /> },
-      { path: 'admin/usuarios', element: <AdminUsersPage /> },
-      { path: '*', element: <NotFoundPage /> },
+      {
+        path: 'proyectos/:slug',
+        lazy: async () => ({
+          Component: (await import('@/features/projects/ProjectDetailPage')).ProjectDetailPage,
+        }),
+      },
+      {
+        path: 'bitacora',
+        lazy: async () => ({
+          Component: (await import('@/features/updates/GlobalUpdatesPage')).GlobalUpdatesPage,
+        }),
+      },
+      {
+        path: 'solicitudes',
+        lazy: async () => ({
+          Component: (await import('@/features/change-requests/GlobalChangeRequestsPage'))
+            .GlobalChangeRequestsPage,
+        }),
+      },
+      {
+        path: 'admin/usuarios',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/AdminUsersPage')).AdminUsersPage,
+        }),
+      },
+      {
+        path: '*',
+        lazy: async () => ({ Component: (await import('./NotFoundPage')).NotFoundPage }),
+      },
     ],
   },
 ]
