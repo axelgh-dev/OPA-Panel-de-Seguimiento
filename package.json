@@ -16,7 +16,8 @@
     "db:reset": "supabase db reset",
     "db:test": "docker exec -i supabase_db_opa-panel psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -f - < supabase/tests/rls.sql 2>&1 | grep -E \"NOTICE|ERROR|CONTEXT\" | sed \"s/NOTICE:  //\"",
     "db:seed": "vite-node scripts/seed-local.ts",
-    "db:types": "supabase gen types typescript --local > src/data/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --local > src/data/supabase/database.types.ts",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@fontsource-variable/newsreader": "^5.3.0",

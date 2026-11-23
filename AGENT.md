@@ -95,7 +95,14 @@ Identidad tomada de opasesores.com y modernizada. Tokens (definir como variables
 
 ## Estado del proyecto
 - [x] Fase 1 — Maqueta navegable con datos de ejemplo (aprobada y desplegada)
-- [ ] Fase 2 — Supabase: auth, esquema, RLS, datos reales  ← **actual** (hecho: migraciones, RLS, adaptador, login; falta: pantallas de captura para dev, administración, anti-pausa y respaldo, despliegue)
+- [x] Fase 2 — Supabase: auth, esquema, RLS, datos reales, pantallas de captura, respaldo y anti-pausa (PR abierto; el despliegue lo hace Axel con `docs/GUIA-DESPLIEGUE.md`)
 - [ ] Fase 3 — Interacción completa y notificaciones por correo
 
 Actualiza esta sección al cerrar cada fase.
+
+## Migraciones, pruebas y automatismos
+- Las migraciones de `supabase/migrations/` son **inmutables** una vez commiteadas: cualquier cambio de esquema va en una migración nueva.
+- `npm run db:test` corre `supabase/tests/rls.sql` contra la base local (Docker); debe pasar antes de dar por terminado un cambio de esquema o de permisos.
+- `npm run check:bundle` verifica que `dist/` no contiene la `service_role`.
+- `.github/workflows/`: `ci.yml` (lint, tipos, pruebas, build, bundle y RLS), `keepalive.yml` (anti-pausa) y `backup.yml` (respaldo semanal cifrado con gpg; el repo es público).
+- Desarrollo local: `docs/DESARROLLO-LOCAL.md`. Despliegue: `docs/GUIA-DESPLIEGUE.md`.

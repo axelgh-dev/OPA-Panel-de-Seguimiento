@@ -1,0 +1,68 @@
+# Respaldo semanal de la base de datos de Supabase.
+# El repositorio es público y cualquier persona con sesión en GitHub puede descargar los artefactos,
+# por eso el volcado se cifra con gpg (AES256) ANTES de subirlo. Retención: 14 días.
+#
+# Restaurar:  gpg --decrypt respaldo.sql.gz.gpg | gunzip | psql "$DB_URL"
+name: Respaldo semanal
+
+on:
+  schedule:
+    - cron: '23 9 * * 0' # domingos, 09:23 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Instalar el cliente de PostgreSQL 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Volcar y cifrar
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Faltan los secretos SUPABASE_DB_URL y BACKUP_PASSPHRASE."
+            exit 1
+          fi
+          stamp="$(date -u +%Y-%m-%d)"
+          umask 077
+          mkdir -p out
+
+          # Solo el esquema public (datos del negocio). Los usuarios se recrean desde el panel de Supabase.
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --schema=public --no-owner --no-privileges --format=plain \
+            | gzip -9 > "dump.sql.gz"
+
+          # Comprobación mínima: que el volcado no esté vacío y tenga las tablas.
+          gunzip -c dump.sql.gz | grep -q "CREATE TABLE public.projects" \
+            || { echo "::error::El volcado no contiene las tablas esperadas."; exit 1; }
+
+          # Cifrado simétrico con la passphrase del secreto (nunca se imprime).
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 \
+            -o "out/respaldo-$stamp.sql.gz.gpg" dump.sql.gz
+
+          # El texto sin cifrar no sale del runner.
+          shred -u dump.sql.gz 2>/dev/null || rm -f dump.sql.gz
+          ls -l out
+          echo "stamp=$stamp" >> "$GITHUB_ENV"
+
+      - name: Subir el respaldo cifrado (14 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ env.stamp }}
+          path: out/*.gpg
+          retention-days: 14
+          if-no-files-found: error
