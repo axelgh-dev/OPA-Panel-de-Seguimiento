@@ -1,0 +1,118 @@
+import type { ChangeRequest } from '../types'
+import { ADMIN_ID, EJ1_ID, EJ2_ID } from './profiles'
+import { CONCILIA, PORTAL, SAT, WEB } from './projects'
+import { t } from './dates'
+
+export const changeRequests: ChangeRequest[] = [
+  {
+    id: 'cr-1',
+    project_id: PORTAL,
+    requested_by: ADMIN_ID,
+    title: 'Firma electrónica al aceptar documentos',
+    description:
+      'Que el cliente pueda firmar de conformidad los documentos que le entregamos (por ejemplo, la declaración anual) dentro del portal.',
+    priority: 'media',
+    status: 'en_analisis',
+    impact_note:
+      '+6 días y un servicio de firma con costo mensual. Alternativa: aceptación con casilla de conformidad (+1 día).',
+    resolved_at: null,
+    created_at: t(-8),
+    updated_at: t(-2),
+  },
+  {
+    id: 'cr-2',
+    project_id: PORTAL,
+    requested_by: EJ1_ID,
+    title: 'Filtro por ejercicio fiscal en la lista de documentos',
+    description:
+      'Poder filtrar los documentos por año para encontrar rápido lo de un ejercicio anterior.',
+    priority: 'baja',
+    status: 'nueva',
+    impact_note: null,
+    resolved_at: null,
+    created_at: t(0, 8),
+    updated_at: t(0, 8),
+  },
+  {
+    id: 'cr-3',
+    project_id: CONCILIA,
+    requested_by: ADMIN_ID,
+    title: 'Soportar estados de cuenta de Banregio',
+    description:
+      'Dos clientes nuevos operan con Banregio y necesitamos conciliarlos igual que el resto.',
+    priority: 'alta',
+    status: 'aceptada',
+    impact_note: '+4 días. Se programa después del reporte de diferencias.',
+    resolved_at: null,
+    created_at: t(-10),
+    updated_at: t(-8),
+  },
+  {
+    id: 'cr-4',
+    project_id: CONCILIA,
+    requested_by: EJ2_ID,
+    title: 'Exportar excepciones a Excel',
+    description:
+      'Que el reporte de movimientos sin conciliar se pueda descargar en Excel para trabajarlo.',
+    priority: 'media',
+    status: 'completada',
+    impact_note: '+1 día',
+    resolved_at: t(-3),
+    created_at: t(-18),
+    updated_at: t(-3),
+  },
+  {
+    id: 'cr-5',
+    project_id: SAT,
+    requested_by: EJ2_ID,
+    title: 'Enviar alertas también por WhatsApp',
+    description: 'Algunos clientes leen más rápido WhatsApp que el correo.',
+    priority: 'baja',
+    status: 'rechazada',
+    impact_note:
+      'Requiere un servicio de mensajería de pago; no cabe en el costo actual del proyecto. Se puede retomar en una segunda etapa.',
+    resolved_at: t(-12),
+    created_at: t(-22),
+    updated_at: t(-12),
+  },
+  {
+    id: 'cr-6',
+    project_id: SAT,
+    requested_by: EJ1_ID,
+    title: 'Marcar obligaciones como "no aplica" por cliente',
+    description:
+      'Hay clientes a los que no les corresponde cierta obligación aunque su régimen la incluya. No deberían aparecer como pendientes.',
+    priority: 'media',
+    status: 'nueva',
+    impact_note: null,
+    resolved_at: null,
+    created_at: t(-1, 15),
+    updated_at: t(-1, 15),
+  },
+  {
+    id: 'cr-7',
+    project_id: SAT,
+    requested_by: ADMIN_ID,
+    title: 'Ordenar el tablero por fecha de vencimiento',
+    description: 'Ver primero lo que vence más pronto, sin importar el cliente.',
+    priority: 'media',
+    status: 'en_progreso',
+    impact_note: '+1 día, se integra al hito del tablero.',
+    resolved_at: null,
+    created_at: t(-15),
+    updated_at: t(-5),
+  },
+  {
+    id: 'cr-8',
+    project_id: WEB,
+    requested_by: ADMIN_ID,
+    title: 'Incluir una sección de blog fiscal',
+    description: 'Publicar artículos breves sobre cambios fiscales para atraer clientes.',
+    priority: 'baja',
+    status: 'en_analisis',
+    impact_note: null,
+    resolved_at: null,
+    created_at: t(-4),
+    updated_at: t(-3),
+  },
+]
