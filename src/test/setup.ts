@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { setMockLatency } from '@/data'
+import { getDemo } from '@/data'
 
 // Sin latencia simulada en pruebas.
-setMockLatency(0)
+getDemo().setMockLatency(0)

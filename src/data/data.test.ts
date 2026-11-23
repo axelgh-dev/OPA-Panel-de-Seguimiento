@@ -11,11 +11,12 @@ import {
   getProject,
   getProjects,
   getTasks,
-  resetDb,
+  getDemo,
   reviewDeliverable,
   setChangeRequestStatus,
-  setSession,
 } from '.'
+
+const { resetDb, setSession } = getDemo()
 
 const ADMIN = 'u-admin'
 const AXEL = 'u-axel'

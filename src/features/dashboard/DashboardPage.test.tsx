@@ -1,10 +1,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { resetDb } from '@/data'
+import { getDemo } from '@/data'
 import { renderAs } from '@/test/utils'
 import { DashboardPage } from './DashboardPage'
 
-beforeEach(() => resetDb())
+beforeEach(() => getDemo().resetDb())
 
 describe('DashboardPage', () => {
   it('OPA: KPIs y 4 proyectos publicados', async () => {
