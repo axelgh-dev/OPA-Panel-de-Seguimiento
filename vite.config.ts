@@ -13,5 +13,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Las pruebas siempre usan el adaptador mock, aunque .env.local apunte a Supabase.
+    env: { VITE_DATA_MODE: 'mock', VITE_DEMO_MODE: 'true' },
   },
 })

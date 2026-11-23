@@ -1,6 +1,16 @@
 import { getDb } from './mock/db'
 import {
   DomainError,
+  createMilestone,
+  createProject,
+  createUpdate,
+  deleteDeliverable,
+  getMilestones,
+  getProfiles,
+  reorderMilestones,
+  updateDeliverable,
+  updateProfile,
+  updateProject,
   addComment,
   createChangeRequest,
   deleteComment,
@@ -11,12 +21,16 @@ import {
   getProject,
   getProjects,
   getTasks,
-  resetDb,
+  getDemo,
   reviewDeliverable,
   setChangeRequestStatus,
-  setSession,
 } from '.'
 
+const { resetDb, setSession } = getDemo()
+
+import { PORTAL } from './mock/projects'
+
+const PORTAL_ID = PORTAL
 const ADMIN = 'u-admin'
 const AXEL = 'u-axel'
 
@@ -216,5 +230,76 @@ describe('comentarios propios: editar y borrar', () => {
     const suelto = await nuevo('Se va')
     await deleteComment(suelto.id)
     expect((await getComments('project', 'pr-web')).some((x) => x.id === suelto.id)).toBe(false)
+  })
+})
+
+describe('captura (solo dev)', () => {
+  const input = {
+    slug: 'proyecto-nuevo',
+    name: 'Proyecto nuevo',
+    summary: 'Resumen',
+    description_md: '',
+    status: 'planeacion' as const,
+    health: 'en_tiempo' as const,
+    priority: 'media' as const,
+    progress_override: null,
+    start_date: '2026-01-01',
+    target_date: '2026-03-01',
+    is_published: false,
+  }
+
+  it('OPA no puede crear proyectos, hitos ni entradas', async () => {
+    await expect(createProject(input)).rejects.toBeInstanceOf(DomainError)
+    await expect(
+      createUpdate({ project_id: 'x', type: 'nota', title: 'x', body_md: 'x' }),
+    ).rejects.toBeInstanceOf(DomainError)
+  })
+
+  it('dev crea un proyecto borrador que OPA no ve hasta publicarlo', async () => {
+    setSession(AXEL)
+    const p = await createProject(input)
+    setSession(ADMIN)
+    expect((await getProjects()).map((x) => x.slug)).not.toContain('proyecto-nuevo')
+    setSession(AXEL)
+    await updateProject(p.id, { is_published: true })
+    setSession(ADMIN)
+    expect((await getProjects()).map((x) => x.slug)).toContain('proyecto-nuevo')
+  })
+
+  it('rechaza un identificador repetido', async () => {
+    setSession(AXEL)
+    await createProject(input)
+    await expect(createProject(input)).rejects.toThrow(/identificador/)
+  })
+
+  it('los hitos se reordenan y el avance sale del peso de los completados', async () => {
+    setSession(AXEL)
+    const p = await createProject(input)
+    const base = {
+      project_id: p.id,
+      description: '',
+      start_date: '2026-01-01',
+      due_date: '2026-02-01',
+    }
+    const a = await createMilestone({ ...base, name: 'A', weight: 1, status: 'completado' })
+    const b = await createMilestone({ ...base, name: 'B', weight: 3, status: 'pendiente' })
+    expect((await getMilestones(p.id)).map((m) => m.name)).toEqual(['A', 'B'])
+    await reorderMilestones(p.id, [b.id, a.id])
+    expect((await getMilestones(p.id)).map((m) => m.name)).toEqual(['B', 'A'])
+    expect((await getProject(p.slug))?.progress).toBe(25)
+  })
+
+  it('un entregable aprobado no se edita y solo el borrador se elimina', async () => {
+    setSession(AXEL)
+    const approved = (await getDeliverables(PORTAL_ID)).find((d) => d.status === 'aprobado')!
+    await expect(updateDeliverable(approved.id, { title: 'otro' })).rejects.toThrow(/aprobado/)
+    await expect(deleteDeliverable(approved.id)).rejects.toThrow(/borrador/)
+  })
+
+  it('un dev no puede desactivar su propia cuenta', async () => {
+    setSession(AXEL)
+    await expect(updateProfile(AXEL, { is_active: false })).rejects.toThrow(/propia cuenta/)
+    await updateProfile(ADMIN, { job_title: 'Directora' })
+    expect((await getProfiles()).find((p) => p.id === ADMIN)?.job_title).toBe('Directora')
   })
 })

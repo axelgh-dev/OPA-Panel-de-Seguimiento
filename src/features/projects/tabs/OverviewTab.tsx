@@ -5,7 +5,9 @@ import { DateLabel } from '@/components/shared/DateLabel'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { Markdown } from '@/components/shared/Markdown'
 import { MilestoneStatusChip, UpdateTypeChip } from '@/components/shared/chips'
+import { RoleGate } from '@/components/shared/RoleGate'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MilestoneEditor } from '@/features/manage/MilestoneEditor'
 import { useUpdates } from '@/features/updates/hooks'
 import { useMilestones } from '../hooks'
 import { MilestoneTimeline } from '../MilestoneTimeline'
@@ -55,6 +57,16 @@ export function OverviewTab({
           <MilestoneTimeline milestones={milestones.data ?? []} />
         )}
       </Panel>
+
+      <RoleGate action="project.edit">
+        {milestones.data && (
+          <MilestoneEditor
+            projectId={project.id}
+            milestones={milestones.data}
+            progressOverride={project.progress_override}
+          />
+        )}
+      </RoleGate>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Próximos hitos">

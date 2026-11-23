@@ -9,8 +9,8 @@ import {
 import { useSession } from '@/lib/session'
 
 /**
- * Selector "Ver como" (solo fase 1). Se muestra siempre porque la maqueta es una demo de
- * concepto; en fase 2 el rol vendrá del perfil de Supabase y esto desaparece.
+ * Selector "Ver como". Solo aparece en la demo (`VITE_DATA_MODE=mock` + `VITE_DEMO_MODE=true`);
+ * con Supabase el rol sale del perfil de la sesión.
  */
 export function RoleSwitcher() {
   const { user, users, setUserId } = useSession()

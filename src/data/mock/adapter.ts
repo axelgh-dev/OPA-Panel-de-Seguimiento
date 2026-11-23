@@ -1,0 +1,875 @@
+/**
+ * Adaptador en memoria (modo demo, `VITE_DATA_MODE=mock`). Misma API que el adaptador de Supabase:
+ *  - El "usuario autenticado" es implícito (como `auth.uid()`): se fija con `setSession`.
+ *  - La visibilidad por rol se aplica aquí (como RLS), no solo en la UI.
+ *  - Las mutaciones validan rol y estado (como las RPC) y lanzan `DomainError`.
+ * Nadie fuera de `src/data` lo importa: se carga desde `src/data/index.ts`.
+ */
+import { isAfter, isBefore, addDays, startOfDay } from 'date-fns'
+import { canModifyComment, can } from '@/lib/permissions'
+import { computeProgress } from '@/lib/progress'
+import { DomainError } from '../errors'
+import { filterAndSortProjects, milestoneFocus } from '../shared'
+import type { DataAdapter } from '../adapter'
+import { getDb, resetDb as resetMockDb } from './db'
+import type {
+  ActivityAction,
+  ActivityEvent,
+  ActivityWithActor,
+  AddCommentInput,
+  ChangeRequest,
+  ChangeRequestWithMeta,
+  CommentTarget,
+  CommentWithAuthor,
+  CreateChangeRequestInput,
+  Deliverable,
+  DeliverableInput,
+  MilestoneInput,
+  ProfileUpdate,
+  ProjectInput,
+  ProjectUpdate,
+  TaskInput,
+  UpdateInput,
+  EditCommentInput,
+  DashboardKpis,
+  DeliverableWithReviews,
+  Milestone,
+  PriorityLevel,
+  Profile,
+  Project,
+  ProjectFilters,
+  ProjectOverview,
+  ReviewDeliverableInput,
+  SetChangeRequestStatusInput,
+  Task,
+  TaskStatus,
+  UpdateWithMeta,
+} from '../types'
+
+// ---------- Infraestructura del adaptador mock (solo modo demo) ----------
+
+let latencyMs = 200
+/** Cambia la latencia simulada (las pruebas usan 0). */
+export function setMockLatency(ms: number): void {
+  latencyMs = ms
+}
+
+/** Espera la latencia simulada y devuelve una copia (la UI nunca toca el almacén). */
+async function respond<T>(compute: () => T): Promise<T> {
+  if (latencyMs > 0) await new Promise((r) => setTimeout(r, latencyMs))
+  return structuredClone(compute())
+}
+
+// SUPUESTO: Admin OPA es el usuario por defecto de la maqueta.
+export const DEFAULT_SESSION_USER_ID = 'u-admin'
+let sessionUserId = DEFAULT_SESSION_USER_ID
+
+export function setSession(userId: string): void {
+  if (!getDb().profiles.some((p) => p.id === userId))
+    throw new Error(`Usuario desconocido: ${userId}`)
+  sessionUserId = userId
+}
+
+/** Lista síncrona para el selector "Ver como" de la demo. */
+export function listDemoUsers(): Profile[] {
+  return structuredClone(getDb().profiles)
+}
+
+export function resetDb(): void {
+  resetMockDb()
+}
+
+function viewer(): Profile {
+  const me = getDb().profiles.find((p) => p.id === sessionUserId)
+  if (!me) throw new DomainError('No hay una sesión activa.')
+  return me
+}
+
+// ---------- Utilidades internas ----------
+
+function visibleProjects(): Project[] {
+  const me = viewer()
+  // Igual que `can_see_project`: dev ve todo; OPA solo proyectos publicados y no archivados.
+  if (can(me.role, 'project.view_draft')) return getDb().projects
+  return getDb().projects.filter((p) => p.is_published && p.archived_at === null)
+}
+
+function visibleProjectIds(): Set<string> {
+  return new Set(visibleProjects().map((p) => p.id))
+}
+
+function seenAt(userId: string, projectId: string): string {
+  const db = getDb()
+  return db.readAt[userId]?.[projectId] ?? db.defaultReadAt[userId] ?? '1970-01-01T00:00:00.000Z'
+}
+
+function profileById(id: string): Profile {
+  const p = getDb().profiles.find((x) => x.id === id)
+  if (!p) throw new Error(`Perfil inexistente: ${id}`)
+  return p
+}
+
+function logActivity(
+  project_id: string,
+  action: ActivityAction,
+  entity_type: ActivityEvent['entity_type'],
+  entity_id: string,
+  entity_label: string,
+  meta: ActivityEvent['meta'] = {},
+): void {
+  getDb().activity.push({
+    id: `ev-${crypto.randomUUID()}`,
+    project_id,
+    actor_id: sessionUserId,
+    action,
+    entity_type,
+    entity_id,
+    entity_label,
+    meta,
+    created_at: new Date().toISOString(),
+  })
+}
+
+function buildOverview(p: Project): ProjectOverview {
+  const db = getDb()
+  const me = viewer()
+  const ms = db.milestones
+    .filter((m) => m.project_id === p.id)
+    .sort((a, b) => a.position - b.position)
+  const { current_milestone, next_milestone } = milestoneFocus(ms)
+
+  const visibleDeliverables = db.deliverables.filter(
+    (d) => d.project_id === p.id && (me.role === 'dev' || d.status !== 'borrador'),
+  )
+  const seen = seenAt(me.id, p.id)
+  const projectComments = db.comments.filter((c) => c.project_id === p.id && c.deleted_at === null)
+
+  const stamps = [
+    p.updated_at,
+    ...db.activity.filter((e) => e.project_id === p.id).map((e) => e.created_at),
+    ...projectComments.map((c) => c.created_at),
+    ...db.updates.filter((u) => u.project_id === p.id).map((u) => u.published_at),
+    ...db.changeRequests.filter((c) => c.project_id === p.id).map((c) => c.updated_at),
+  ]
+
+  return {
+    ...p,
+    segments: ms.map(({ id, name, weight, status }) => ({ id, name, weight, status })),
+    progress: computeProgress(ms, p.progress_override),
+    current_milestone,
+    next_milestone,
+    alerts: {
+      pending_deliverables: visibleDeliverables.filter((d) => d.status === 'en_revision').length,
+      open_change_requests: db.changeRequests.filter(
+        (c) => c.project_id === p.id && c.status !== 'rechazada' && c.status !== 'completada',
+      ).length,
+      unread_comments: projectComments.filter((c) => c.author_id !== me.id && c.created_at > seen)
+        .length,
+    },
+    last_activity_at: stamps.reduce((a, b) => (a > b ? a : b)),
+  }
+}
+
+// ---------- Lecturas ----------
+
+export function getProfiles(): Promise<Profile[]> {
+  return respond(() => getDb().profiles)
+}
+
+export function getProjects(filters: ProjectFilters = {}): Promise<ProjectOverview[]> {
+  return respond(() => filterAndSortProjects(visibleProjects().map(buildOverview), filters))
+}
+
+/** Devuelve null si no existe o el usuario no puede verlo (igual que RLS). */
+export function getProject(slug: string): Promise<ProjectOverview | null> {
+  return respond(() => {
+    const p = visibleProjects().find((x) => x.slug === slug)
+    return p ? buildOverview(p) : null
+  })
+}
+
+export function getMilestones(projectId: string): Promise<Milestone[]> {
+  return respond(() =>
+    visibleProjectIds().has(projectId)
+      ? getDb()
+          .milestones.filter((m) => m.project_id === projectId)
+          .sort((a, b) => a.position - b.position)
+      : [],
+  )
+}
+
+export function getTasks(projectId: string): Promise<Task[]> {
+  return respond(() => {
+    if (!visibleProjectIds().has(projectId)) return []
+    const canSeeInternal = can(viewer().role, 'task.view_internal')
+    return getDb()
+      .tasks.filter((t) => t.project_id === projectId && (canSeeInternal || !t.is_internal))
+      .sort((a, b) => a.position - b.position)
+  })
+}
+
+export function getDeliverables(projectId: string): Promise<DeliverableWithReviews[]> {
+  return respond(() => {
+    if (!visibleProjectIds().has(projectId)) return []
+    const db = getDb()
+    const isDev = viewer().role === 'dev'
+    return db.deliverables
+      .filter((d) => d.project_id === projectId && (isDev || d.status !== 'borrador'))
+      .map((d) => ({
+        ...d,
+        creator: profileById(d.created_by),
+        reviews: db.reviews
+          .filter((r) => r.deliverable_id === d.id)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .map((r) => ({ ...r, reviewer: profileById(r.reviewer_id) })),
+      }))
+      .sort((a, b) =>
+        (b.submitted_at ?? b.decided_at ?? '').localeCompare(a.submitted_at ?? a.decided_at ?? ''),
+      )
+  })
+}
+
+export function getUpdates(opts: { projectId?: string } = {}): Promise<UpdateWithMeta[]> {
+  return respond(() => {
+    const db = getDb()
+    const me = viewer()
+    const ids = visibleProjectIds()
+    return db.updates
+      .filter((u) => ids.has(u.project_id) && (!opts.projectId || u.project_id === opts.projectId))
+      .map((u) => {
+        const project = db.projects.find((p) => p.id === u.project_id)!
+        return {
+          ...u,
+          author: profileById(u.author_id),
+          project_name: project.name,
+          project_slug: project.slug,
+          comment_count: db.comments.filter(
+            (c) => c.target_type === 'update' && c.target_id === u.id && c.deleted_at === null,
+          ).length,
+          is_new: u.author_id !== me.id && u.published_at > seenAt(me.id, u.project_id),
+        }
+      })
+      .sort((a, b) => b.published_at.localeCompare(a.published_at))
+  })
+}
+
+export function getChangeRequests(
+  opts: { projectId?: string } = {},
+): Promise<ChangeRequestWithMeta[]> {
+  return respond(() => {
+    const db = getDb()
+    const ids = visibleProjectIds()
+    return db.changeRequests
+      .filter((c) => ids.has(c.project_id) && (!opts.projectId || c.project_id === opts.projectId))
+      .map((c) => {
+        const project = db.projects.find((p) => p.id === c.project_id)!
+        return {
+          ...c,
+          requester: profileById(c.requested_by),
+          project_name: project.name,
+          project_slug: project.slug,
+          comment_count: db.comments.filter(
+            (x) =>
+              x.target_type === 'change_request' && x.target_id === c.id && x.deleted_at === null,
+          ).length,
+        }
+      })
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  })
+}
+
+export function getComments(
+  target_type: CommentTarget,
+  target_id: string,
+): Promise<CommentWithAuthor[]> {
+  return respond(() => {
+    const ids = visibleProjectIds()
+    const all = getDb().comments.filter(
+      (c) => ids.has(c.project_id) && c.target_type === target_type && c.target_id === target_id,
+    )
+    // Un comentario borrado que tiene respuestas se conserva (sin texto) para no dejarlas huérfanas.
+    const hasReplies = new Set(all.filter((c) => c.deleted_at === null).map((c) => c.parent_id))
+    return all
+      .filter((c) => c.deleted_at === null || hasReplies.has(c.id))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((c) => ({
+        ...c,
+        body: c.deleted_at === null ? c.body : '',
+        author: profileById(c.author_id),
+      }))
+  })
+}
+
+export function getActivity(projectId: string): Promise<ActivityWithActor[]> {
+  return respond(() => {
+    if (!visibleProjectIds().has(projectId) || !can(viewer().role, 'activity.view')) return []
+    const db = getDb()
+    const project = db.projects.find((p) => p.id === projectId)!
+    return db.activity
+      .filter((e) => e.project_id === projectId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((e) => ({ ...e, actor: profileById(e.actor_id), project_name: project.name }))
+  })
+}
+
+export function getDashboardKpis(): Promise<DashboardKpis> {
+  return respond(() => {
+    const db = getDb()
+    const projects = visibleProjects()
+    const ids = new Set(projects.map((p) => p.id))
+    const today = startOfDay(new Date())
+    const horizon = addDays(today, 14)
+
+    return {
+      active_projects: projects.filter((p) =>
+        ['planeacion', 'en_progreso', 'en_revision'].includes(p.status),
+      ).length,
+      upcoming_deliveries: db.milestones.filter((m) => {
+        if (!ids.has(m.project_id) || m.status === 'completado') return false
+        const due = new Date(`${m.due_date}T00:00:00`)
+        return !isBefore(due, today) && !isAfter(due, horizon)
+      }).length,
+      pending_approvals: db.deliverables.filter(
+        (d) => ids.has(d.project_id) && d.status === 'en_revision',
+      ).length,
+      open_change_requests: db.changeRequests.filter(
+        (c) => ids.has(c.project_id) && c.status !== 'rechazada' && c.status !== 'completada',
+      ).length,
+    }
+  })
+}
+
+// ---------- Mutaciones ----------
+
+function requireVisibleProject(projectId: string): Project {
+  const p = visibleProjects().find((x) => x.id === projectId)
+  if (!p) throw new DomainError('No tienes acceso a este proyecto.')
+  return p
+}
+
+export function reviewDeliverable(input: ReviewDeliverableInput): Promise<void> {
+  return respond(() => {
+    const db = getDb()
+    const me = viewer()
+    const dl = db.deliverables.find((d) => d.id === input.deliverable_id)
+    if (!dl) throw new DomainError('El entregable no existe.')
+    requireVisibleProject(dl.project_id)
+    if (!can(me.role, 'deliverable.review', { deliverableStatus: dl.status })) {
+      throw new DomainError(
+        dl.status !== 'en_revision'
+          ? 'Solo se pueden revisar entregables que están en revisión.'
+          : 'Tu rol no puede aprobar ni rechazar entregables.',
+      )
+    }
+    const comment = input.comment.trim()
+    if (input.decision !== 'aprobado' && comment.length < 3) {
+      throw new DomainError('Agrega un comentario para rechazar o pedir cambios.')
+    }
+    const now = new Date().toISOString()
+    dl.status = input.decision
+    dl.decided_at = now
+    db.reviews.push({
+      id: `rv-${crypto.randomUUID()}`,
+      deliverable_id: dl.id,
+      reviewer_id: me.id,
+      decision: input.decision,
+      comment,
+      created_at: now,
+    })
+    const action: ActivityAction =
+      input.decision === 'aprobado'
+        ? 'entregable_aprobado'
+        : input.decision === 'rechazado'
+          ? 'entregable_rechazado'
+          : 'entregable_cambios_solicitados'
+    logActivity(dl.project_id, action, 'deliverable', dl.id, dl.title)
+  })
+}
+
+/** Dev: envía un borrador (o uno con cambios/rechazado) a revisión. */
+export function submitDeliverable(deliverableId: string): Promise<void> {
+  return respond(() => {
+    const db = getDb()
+    const dl = db.deliverables.find((d) => d.id === deliverableId)
+    if (!dl) throw new DomainError('El entregable no existe.')
+    if (!can(viewer().role, 'deliverable.submit', { deliverableStatus: dl.status })) {
+      throw new DomainError('Este entregable no se puede enviar a revisión.')
+    }
+    if (dl.status === 'en_revision') throw new DomainError('El entregable ya está en revisión.')
+    dl.status = 'en_revision'
+    dl.submitted_at = new Date().toISOString()
+    dl.decided_at = null
+    logActivity(dl.project_id, 'entregable_enviado', 'deliverable', dl.id, dl.title)
+  })
+}
+
+export function addComment(input: AddCommentInput): Promise<void> {
+  return respond(() => {
+    const me = viewer()
+    if (!can(me.role, 'comment.create')) throw new DomainError('No puedes comentar.')
+    requireVisibleProject(input.project_id)
+    const body = input.body.trim()
+    if (body.length === 0) throw new DomainError('Escribe un comentario.')
+    getDb().comments.push({
+      id: `cm-${crypto.randomUUID()}`,
+      project_id: input.project_id,
+      target_type: input.target_type,
+      target_id: input.target_id,
+      parent_id: input.parent_id ?? null,
+      author_id: me.id,
+      body,
+      created_at: new Date().toISOString(),
+      edited_at: null,
+      deleted_at: null,
+    })
+    logActivity(
+      input.project_id,
+      'comentario_creado',
+      'comment',
+      input.target_id,
+      body.slice(0, 80),
+    )
+  })
+}
+
+function ownCommentOrThrow(id: string) {
+  const me = viewer()
+  const comment = getDb().comments.find((c) => c.id === id)
+  if (!comment || comment.deleted_at !== null) throw new DomainError('El comentario no existe.')
+  if (comment.author_id !== me.id)
+    throw new DomainError('Solo puedes modificar tus propios comentarios.')
+  if (!canModifyComment(me.role, me.id, comment)) {
+    throw new DomainError('Ya pasaron más de 15 minutos: el comentario ya no se puede modificar.')
+  }
+  return comment
+}
+
+export function editComment(input: EditCommentInput): Promise<void> {
+  return respond(() => {
+    const comment = ownCommentOrThrow(input.id)
+    const body = input.body.trim()
+    if (body.length === 0) throw new DomainError('Escribe un comentario.')
+    comment.body = body
+    comment.edited_at = new Date().toISOString()
+  })
+}
+
+/** Borrado lógico (`deleted_at`), igual que en el modelo de datos. */
+export function deleteComment(id: string): Promise<void> {
+  return respond(() => {
+    ownCommentOrThrow(id).deleted_at = new Date().toISOString()
+  })
+}
+
+export function createChangeRequest(input: CreateChangeRequestInput): Promise<ChangeRequest> {
+  return respond(() => {
+    const me = viewer()
+    if (!can(me.role, 'change_request.create')) {
+      throw new DomainError('Solo el despacho puede crear solicitudes de cambio.')
+    }
+    requireVisibleProject(input.project_id)
+    const now = new Date().toISOString()
+    const cr: ChangeRequest = {
+      id: `cr-${crypto.randomUUID()}`,
+      project_id: input.project_id,
+      requested_by: me.id,
+      title: input.title.trim(),
+      description: input.description.trim(),
+      priority: input.priority,
+      status: 'nueva',
+      impact_note: null,
+      resolved_at: null,
+      created_at: now,
+      updated_at: now,
+    }
+    getDb().changeRequests.push(cr)
+    logActivity(cr.project_id, 'solicitud_creada', 'change_request', cr.id, cr.title)
+    return cr
+  })
+}
+
+export function setChangeRequestStatus(input: SetChangeRequestStatusInput): Promise<void> {
+  return respond(() => {
+    if (!can(viewer().role, 'change_request.set_status')) {
+      throw new DomainError('Solo el desarrollador puede cambiar el estatus de una solicitud.')
+    }
+    const cr = getDb().changeRequests.find((c) => c.id === input.id)
+    if (!cr) throw new DomainError('La solicitud no existe.')
+    const now = new Date().toISOString()
+    cr.status = input.status
+    if (input.impact_note !== undefined) cr.impact_note = input.impact_note?.trim() || null
+    cr.resolved_at = input.status === 'rechazada' || input.status === 'completada' ? now : null
+    cr.updated_at = now
+    logActivity(cr.project_id, 'solicitud_estatus', 'change_request', cr.id, cr.title, {
+      status: input.status,
+    })
+  })
+}
+
+export function setProjectPriority(projectId: string, priority: PriorityLevel): Promise<void> {
+  return respond(() => {
+    if (!can(viewer().role, 'priority.set'))
+      throw new DomainError('No puedes cambiar la prioridad.')
+    const p = requireVisibleProject(projectId)
+    p.priority = priority
+    p.updated_at = new Date().toISOString()
+    logActivity(p.id, 'prioridad_cambiada', 'project', p.id, p.name, { priority })
+  })
+}
+
+export function updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
+  return respond(() => {
+    if (!can(viewer().role, 'task.edit'))
+      throw new DomainError('Solo el desarrollador puede editar tareas.')
+    const task = getDb().tasks.find((t) => t.id === taskId)
+    if (!task) throw new DomainError('La tarea no existe.')
+    task.status = status
+    task.updated_at = new Date().toISOString()
+  })
+}
+
+/** Equivale a escribir en `read_receipts`: marca el proyecto como visto. */
+export function markProjectRead(projectId: string): Promise<void> {
+  return respond(() => {
+    const db = getDb()
+    const me = viewer()
+    ;(db.readAt[me.id] ??= {})[projectId] = new Date().toISOString()
+  })
+}
+
+// ---------- Captura (solo dev) ----------
+
+function requireDev(): Profile {
+  const me = viewer()
+  if (!can(me.role, 'project.edit')) {
+    throw new DomainError('Solo el desarrollador puede capturar y editar el contenido.')
+  }
+  return me
+}
+
+function find<T extends { id: string }>(list: T[], id: string, what: string): T {
+  const item = list.find((x) => x.id === id)
+  if (!item) throw new DomainError(`${what} no existe.`)
+  return item
+}
+
+const nextPosition = (positions: number[]) => (positions.length ? Math.max(...positions) + 1 : 0)
+
+export function createProject(input: ProjectInput): Promise<Project> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    if (db.projects.some((p) => p.slug === input.slug)) {
+      throw new DomainError('Ya existe un proyecto con ese identificador (slug).')
+    }
+    const now = new Date().toISOString()
+    const project: Project = {
+      ...input,
+      id: `p-${crypto.randomUUID()}`,
+      archived_at: null,
+      created_at: now,
+      updated_at: now,
+    }
+    db.projects.push(project)
+    return project
+  })
+}
+
+export function updateProject(id: string, patch: Partial<ProjectInput>): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    const project = find(db.projects, id, 'El proyecto')
+    if (patch.slug && db.projects.some((p) => p.id !== id && p.slug === patch.slug)) {
+      throw new DomainError('Ya existe un proyecto con ese identificador (slug).')
+    }
+    Object.assign(project, patch, { updated_at: new Date().toISOString() })
+  })
+}
+
+export function deleteProject(id: string): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.projects, id, 'El proyecto')
+    const deliverableIds = new Set(
+      db.deliverables.filter((d) => d.project_id === id).map((d) => d.id),
+    )
+    db.projects = db.projects.filter((p) => p.id !== id)
+    db.milestones = db.milestones.filter((m) => m.project_id !== id)
+    db.tasks = db.tasks.filter((t) => t.project_id !== id)
+    db.deliverables = db.deliverables.filter((d) => d.project_id !== id)
+    db.reviews = db.reviews.filter((r) => !deliverableIds.has(r.deliverable_id))
+    db.updates = db.updates.filter((u) => u.project_id !== id)
+    db.changeRequests = db.changeRequests.filter((c) => c.project_id !== id)
+    db.comments = db.comments.filter((c) => c.project_id !== id)
+    db.activity = db.activity.filter((e) => e.project_id !== id)
+  })
+}
+
+export function createMilestone(input: MilestoneInput): Promise<Milestone> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.projects, input.project_id, 'El proyecto')
+    const milestone: Milestone = {
+      ...input,
+      id: `m-${crypto.randomUUID()}`,
+      position: nextPosition(
+        db.milestones.filter((m) => m.project_id === input.project_id).map((m) => m.position),
+      ),
+      completed_at: input.status === 'completado' ? new Date().toISOString() : null,
+    }
+    db.milestones.push(milestone)
+    return milestone
+  })
+}
+
+export function updateMilestone(
+  id: string,
+  patch: Partial<Omit<MilestoneInput, 'project_id'>>,
+): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const milestone = find(getDb().milestones, id, 'El hito')
+    const wasDone = milestone.status === 'completado'
+    Object.assign(milestone, patch)
+    if (milestone.status === 'completado' && !wasDone) {
+      milestone.completed_at = new Date().toISOString()
+      logActivity(
+        milestone.project_id,
+        'hito_completado',
+        'milestone',
+        milestone.id,
+        milestone.name,
+      )
+    } else if (milestone.status !== 'completado') {
+      milestone.completed_at = null
+    }
+  })
+}
+
+export function deleteMilestone(id: string): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.milestones, id, 'El hito')
+    db.milestones = db.milestones.filter((m) => m.id !== id)
+    // Igual que la base de datos: las tareas y entregables quedan sin hito.
+    for (const t of db.tasks) if (t.milestone_id === id) t.milestone_id = null
+    for (const d of db.deliverables) if (d.milestone_id === id) d.milestone_id = null
+  })
+}
+
+export function reorderMilestones(projectId: string, orderedIds: string[]): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    orderedIds.forEach((id, index) => {
+      const m = db.milestones.find((x) => x.id === id && x.project_id === projectId)
+      if (m) m.position = index
+    })
+  })
+}
+
+export function createTask(input: TaskInput): Promise<Task> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.projects, input.project_id, 'El proyecto')
+    const task: Task = {
+      ...input,
+      id: `t-${crypto.randomUUID()}`,
+      position: nextPosition(
+        db.tasks.filter((t) => t.project_id === input.project_id).map((t) => t.position),
+      ),
+      updated_at: new Date().toISOString(),
+    }
+    db.tasks.push(task)
+    return task
+  })
+}
+
+export function updateTask(
+  id: string,
+  patch: Partial<Omit<TaskInput, 'project_id'>>,
+): Promise<void> {
+  return respond(() => {
+    requireDev()
+    Object.assign(find(getDb().tasks, id, 'La tarea'), patch, {
+      updated_at: new Date().toISOString(),
+    })
+  })
+}
+
+export function deleteTask(id: string): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.tasks, id, 'La tarea')
+    db.tasks = db.tasks.filter((t) => t.id !== id)
+  })
+}
+
+export function createDeliverable(input: DeliverableInput): Promise<Deliverable> {
+  return respond(() => {
+    const me = requireDev()
+    const db = getDb()
+    find(db.projects, input.project_id, 'El proyecto')
+    const deliverable: Deliverable = {
+      ...input,
+      id: `d-${crypto.randomUUID()}`,
+      status: 'borrador',
+      storage_path: null,
+      submitted_at: null,
+      decided_at: null,
+      created_by: me.id,
+    }
+    db.deliverables.push(deliverable)
+    return deliverable
+  })
+}
+
+export function updateDeliverable(
+  id: string,
+  patch: Partial<Omit<DeliverableInput, 'project_id'>>,
+): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const deliverable = find(getDb().deliverables, id, 'El entregable')
+    if (deliverable.status === 'aprobado') {
+      throw new DomainError('Un entregable aprobado no se puede modificar.')
+    }
+    Object.assign(deliverable, patch)
+  })
+}
+
+export function deleteDeliverable(id: string): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    const deliverable = find(db.deliverables, id, 'El entregable')
+    if (deliverable.status !== 'borrador') {
+      throw new DomainError('Solo se pueden eliminar entregables en borrador.')
+    }
+    db.deliverables = db.deliverables.filter((d) => d.id !== id)
+  })
+}
+
+export function uploadDeliverableFile(): Promise<void> {
+  return Promise.reject(
+    new DomainError(
+      'Subir archivos solo está disponible con la base de datos real. Usa un enlace.',
+    ),
+  )
+}
+
+export function getDeliverableFileUrl(): Promise<string | null> {
+  return Promise.resolve(null)
+}
+
+export function createUpdate(input: UpdateInput): Promise<ProjectUpdate> {
+  return respond(() => {
+    const me = requireDev()
+    const db = getDb()
+    find(db.projects, input.project_id, 'El proyecto')
+    const now = new Date().toISOString()
+    const update: ProjectUpdate = {
+      ...input,
+      id: `u-${crypto.randomUUID()}`,
+      author_id: me.id,
+      published_at: now,
+      created_at: now,
+    }
+    db.updates.push(update)
+    logActivity(update.project_id, 'bitacora_publicada', 'update', update.id, update.title)
+    return update
+  })
+}
+
+export function updateUpdate(
+  id: string,
+  patch: Partial<Omit<UpdateInput, 'project_id'>>,
+): Promise<void> {
+  return respond(() => {
+    requireDev()
+    Object.assign(find(getDb().updates, id, 'La entrada'), patch)
+  })
+}
+
+export function deleteUpdate(id: string): Promise<void> {
+  return respond(() => {
+    requireDev()
+    const db = getDb()
+    find(db.updates, id, 'La entrada')
+    db.updates = db.updates.filter((u) => u.id !== id)
+  })
+}
+
+export function updateProfile(id: string, patch: ProfileUpdate): Promise<void> {
+  return respond(() => {
+    const me = viewer()
+    if (!can(me.role, 'user.manage')) {
+      throw new DomainError('Solo el desarrollador puede administrar usuarios.')
+    }
+    if (id === me.id && (patch.is_active === false || (patch.role && patch.role !== me.role))) {
+      throw new DomainError(
+        'No puedes desactivar tu propia cuenta ni quitarte el rol de desarrollador.',
+      )
+    }
+    Object.assign(find(getDb().profiles, id, 'El usuario'), patch)
+  })
+}
+
+export const adapter: DataAdapter = {
+  getProfiles,
+  getProjects,
+  getProject,
+  getMilestones,
+  getTasks,
+  getDeliverables,
+  getUpdates,
+  getChangeRequests,
+  getComments,
+  getActivity,
+  getDashboardKpis,
+  reviewDeliverable,
+  submitDeliverable,
+  addComment,
+  editComment,
+  deleteComment,
+  createChangeRequest,
+  setChangeRequestStatus,
+  setProjectPriority,
+  updateTaskStatus,
+  markProjectRead,
+  createProject,
+  updateProject,
+  deleteProject,
+  createMilestone,
+  updateMilestone,
+  deleteMilestone,
+  reorderMilestones,
+  createTask,
+  updateTask,
+  deleteTask,
+  createDeliverable,
+  updateDeliverable,
+  deleteDeliverable,
+  uploadDeliverableFile,
+  getDeliverableFileUrl,
+  createUpdate,
+  updateUpdate,
+  deleteUpdate,
+  updateProfile,
+}
+
+/** Controles que solo existen en modo demo: cambiar de usuario, reiniciar datos y simular latencia. */
+export const demo = {
+  defaultUserId: DEFAULT_SESSION_USER_ID,
+  setSession,
+  listDemoUsers,
+  resetDb,
+  setMockLatency,
+}
+export type DemoControls = typeof demo

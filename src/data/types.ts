@@ -267,3 +267,61 @@ export interface SetChangeRequestStatusInput {
   status: ChangeReqStatus
   impact_note?: string | null
 }
+
+// ---------- Captura (solo dev) ----------
+export interface ProjectInput {
+  slug: string
+  name: string
+  summary: string
+  description_md: string
+  status: ProjectStatus
+  health: ProjectHealth
+  priority: PriorityLevel
+  /** null = el avance se calcula por el peso de los hitos completados. */
+  progress_override: number | null
+  start_date: string
+  target_date: string
+  is_published: boolean
+}
+
+export interface MilestoneInput {
+  project_id: string
+  name: string
+  description: string
+  weight: number
+  start_date: string
+  due_date: string
+  status: MilestoneStatus
+}
+
+export interface TaskInput {
+  project_id: string
+  milestone_id: string | null
+  title: string
+  status: TaskStatus
+  due_date: string | null
+  is_internal: boolean
+}
+
+export interface DeliverableInput {
+  project_id: string
+  milestone_id: string | null
+  title: string
+  description: string
+  version: number
+  link_url: string | null
+}
+
+export interface UpdateInput {
+  project_id: string
+  type: UpdateType
+  title: string
+  body_md: string
+}
+
+export interface ProfileUpdate {
+  full_name?: string
+  job_title?: string
+  role?: UserRole
+  is_active?: boolean
+}

@@ -1,4 +1,4 @@
-import { ArrowLeft, SearchX } from 'lucide-react'
+import { ArrowLeft, Pencil, SearchX } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import type { PriorityLevel, ProjectOverview, ProjectTab } from '@/data'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -104,7 +104,20 @@ export function ProjectDetailPage() {
         Todos los proyectos
       </Link>
 
-      <PageHeader title={p.name} description={p.summary} />
+      <PageHeader
+        title={p.name}
+        description={p.summary}
+        actions={
+          <RoleGate action="project.edit">
+            <Button variant="outline" asChild>
+              <Link to={`/proyectos/${p.slug}/editar`}>
+                <Pencil aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                Editar proyecto
+              </Link>
+            </Button>
+          </RoleGate>
+        }
+      />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <ProjectStatusChip value={p.status} />

@@ -39,13 +39,14 @@ src/
   data/
     types.ts      # tipos de dominio (espejo del modelo de datos)
     index.ts      # API pública: getProjects(), getProject(slug), reviewDeliverable()...
-    mock/         # fase 1: datos de ejemplo y adaptador en memoria
-    supabase/     # fase 2: adaptador real
+    adapter.ts    # contrato DataAdapter que implementan ambos adaptadores
+    mock/         # datos de ejemplo y adaptador en memoria (demo y pruebas)
+    supabase/     # adaptador real (cliente, auth, errores, tipos generados)
   lib/            # utilidades (formatos de fecha, cn(), permisos)
   styles/ o index.css  # tokens de marca
 supabase/
   migrations/     # SQL versionado (fase 2)
-  seed.sql
+  tests/rls.sql   # pruebas de RLS por rol (npm run db:test)
 docs/
   REQUERIMIENTOS.md
 ```
@@ -53,7 +54,7 @@ docs/
 ## Reglas de arquitectura
 1. **Ningún componente importa de `src/data/mock/` ni de `@supabase/supabase-js` directamente.** Todo pasa por `src/data/index.ts` envuelto en hooks de TanStack Query (`useProjects`, `useProject`...). Así la fase 2 cambia el adaptador sin tocar la UI.
 2. Los permisos de UI se resuelven con una sola función `can(role, action, entity?)` en `src/lib/permissions.ts`, alineada con la matriz §3.1. No dispersar `if (role === ...)` por los componentes.
-3. Rol actual: en fase 1 viene de un selector "Ver como" (solo visible en `import.meta.env.DEV` o con `?demo=1`); en fase 2 viene del perfil en Supabase.
+3. Origen de datos y rol actual: `VITE_DATA_MODE` elige el adaptador (`mock` o `supabase`, ver `src/data/index.ts`). Con `supabase` el rol sale del perfil de la sesión (Supabase Auth, rutas protegidas con `RequireAuth`). El selector "Ver como" solo existe en la demo: `VITE_DATA_MODE=mock` + `VITE_DEMO_MODE=true`; en producción no se renderiza.
 4. Formatos de fecha centralizados en `src/lib/format.ts` (`23 nov 2026`, "en 5 días", "hace 2 h").
 5. Markdown de bitácora con `react-markdown` sin `rehype-raw` (nada de HTML crudo).
 6. Supabase: el cliente solo usa la `anon key` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). La `service_role` jamás va al frontend ni al repo. Toda tabla con RLS habilitado. Acciones con lógica (aprobar, cambiar estatus, prioridad) vía funciones RPC.
@@ -93,8 +94,15 @@ Identidad tomada de opasesores.com y modernizada. Tokens (definir como variables
 `dev`, `build`, `preview`, `lint`, `format`, `typecheck` (`tsc --noEmit`), `test` (`vitest run`).
 
 ## Estado del proyecto
-- [ ] Fase 1 — Maqueta navegable con datos de ejemplo  ← **actual**
-- [ ] Fase 2 — Supabase: auth, esquema, RLS, datos reales
+- [x] Fase 1 — Maqueta navegable con datos de ejemplo (aprobada y desplegada)
+- [x] Fase 2 — Supabase: auth, esquema, RLS, datos reales, pantallas de captura, respaldo y anti-pausa (PR abierto; el despliegue lo hace Axel con `docs/GUIA-DESPLIEGUE.md`)
 - [ ] Fase 3 — Interacción completa y notificaciones por correo
 
 Actualiza esta sección al cerrar cada fase.
+
+## Migraciones, pruebas y automatismos
+- Las migraciones de `supabase/migrations/` son **inmutables** una vez commiteadas: cualquier cambio de esquema va en una migración nueva.
+- `npm run db:test` corre `supabase/tests/rls.sql` contra la base local (Docker); debe pasar antes de dar por terminado un cambio de esquema o de permisos.
+- `npm run check:bundle` verifica que `dist/` no contiene la `service_role`.
+- `.github/workflows/`: `ci.yml` (lint, tipos, pruebas, build, bundle y RLS), `keepalive.yml` (anti-pausa) y `backup.yml` (respaldo semanal cifrado con gpg; el repo es público).
+- Desarrollo local: `docs/DESARROLLO-LOCAL.md`. Despliegue: `docs/GUIA-DESPLIEGUE.md`.

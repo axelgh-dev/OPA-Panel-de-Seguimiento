@@ -2,10 +2,13 @@ import { createContext, useContext } from 'react'
 import type { Profile } from '@/data'
 
 export interface SessionValue {
-  /** Usuario con el que se está viendo la maqueta ("Ver como"). */
+  /** Usuario con sesión activa (en la demo, el elegido en "Ver como"). */
   user: Profile
   users: Profile[]
+  /** Solo en la demo: cambia el usuario. En producción no hace nada. */
   setUserId: (id: string) => void
+  /** Cierra la sesión (solo con Supabase). */
+  signOut?: () => Promise<void>
 }
 
 export const SessionContext = createContext<SessionValue | null>(null)

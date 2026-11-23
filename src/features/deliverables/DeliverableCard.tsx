@@ -1,12 +1,16 @@
-import { CircleCheck, ExternalLink, FileText, Lock } from 'lucide-react'
+import { CircleCheck, ExternalLink, Lock, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import type { DeliverableWithReviews, ReviewDecision } from '@/data'
+import type { DeliverableWithReviews, Milestone, ReviewDecision } from '@/data'
 import { DateLabel } from '@/components/shared/DateLabel'
 import { DeliverableStatusChip, ReviewDecisionChip } from '@/components/shared/chips'
 import { RoleGate } from '@/components/shared/RoleGate'
 import { Button } from '@/components/ui/button'
 import { CommentsToggle } from '@/features/comments/CommentsToggle'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { DeliverableDialog } from '@/features/manage/DeliverableDialog'
+import { useDeleteDeliverable } from '@/features/manage/hooks'
 import { useSession } from '@/lib/session'
+import { FileLink } from './FileLink'
 import { cn } from '@/lib/utils'
 import { ReviewDialog } from './ReviewDialog'
 import { useSubmitDeliverable } from './hooks'
@@ -14,13 +18,18 @@ import { useSubmitDeliverable } from './hooks'
 export function DeliverableCard({
   deliverable: d,
   milestoneName,
+  milestones = [],
 }: {
   deliverable: DeliverableWithReviews
   milestoneName?: string
+  milestones?: Milestone[]
 }) {
   const { user } = useSession()
   const [decision, setDecision] = useState<ReviewDecision | null>(null)
   const submit = useSubmitDeliverable()
+  const remove = useDeleteDeliverable()
+  const [editing, setEditing] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   return (
     <article className="rounded-xl border bg-card p-5 shadow-card">
@@ -68,8 +77,8 @@ export function DeliverableCard({
       </dl>
 
       {(d.link_url || d.storage_path) && (
-        <div className="mt-3">
-          {d.link_url ? (
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          {d.link_url && (
             <a
               href={d.link_url}
               target="_blank"
@@ -79,12 +88,8 @@ export function DeliverableCard({
               <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.5} />
               Abrir entregable
             </a>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
-              <FileText aria-hidden className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-              {d.storage_path?.split('/').pop()}
-            </span>
           )}
+          {d.storage_path && <FileLink storagePath={d.storage_path} />}
         </div>
       )}
 
@@ -149,6 +154,26 @@ export function DeliverableCard({
           )}
         </RoleGate>
 
+        <RoleGate action="project.edit">
+          {d.status !== 'aprobado' && (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+              Editar
+            </Button>
+          )}
+          {d.status === 'borrador' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-danger-ink hover:bg-danger-soft"
+              onClick={() => setRemoving(true)}
+            >
+              <Trash2 aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+              Eliminar
+            </Button>
+          )}
+        </RoleGate>
+
         {d.status === 'aprobado' && (
           <p className={cn('inline-flex items-center gap-1.5 text-sm text-muted-foreground')}>
             <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -165,6 +190,24 @@ export function DeliverableCard({
       <div className="mt-4 border-t pt-4">
         <CommentsToggle projectId={d.project_id} targetType="deliverable" targetId={d.id} />
       </div>
+
+      {editing && (
+        <DeliverableDialog
+          open
+          onOpenChange={setEditing}
+          projectId={d.project_id}
+          milestones={milestones}
+          deliverable={d}
+        />
+      )}
+      <ConfirmDialog
+        open={removing}
+        onOpenChange={setRemoving}
+        title="Eliminar entregable"
+        description={`Se borrará el borrador “${d.title}”. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar entregable"
+        onConfirm={() => remove.mutateAsync(d.id)}
+      />
 
       <ReviewDialog
         deliverable={d}

@@ -1,5 +1,6 @@
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { isDemoMode } from '@/data'
 import { RoleSwitcher } from './RoleSwitcher'
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
@@ -15,9 +16,11 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Menu className="h-5 w-5" strokeWidth={1.5} />
       </Button>
       <img src="/brand/logo.png" alt="OP&A" className="h-6 w-auto lg:hidden" />
-      <div className="ml-auto">
-        <RoleSwitcher />
-      </div>
+      {isDemoMode && (
+        <div className="ml-auto">
+          <RoleSwitcher />
+        </div>
+      )}
     </div>
   )
 }
