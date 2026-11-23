@@ -36,16 +36,16 @@ function Node({ status }: { status: MilestoneStatus }) {
 /** Horizontal desde `md`; vertical en móvil. */
 export function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
   return (
-    <ol className="grid gap-7 md:auto-cols-fr md:grid-flow-col md:gap-0">
+    <ol className="grid gap-7 xl:auto-cols-fr xl:grid-flow-col xl:gap-0">
       {milestones.map((m, i) => {
         const last = i === milestones.length - 1
         return (
-          <li key={m.id} className="relative flex gap-4 md:flex-col md:gap-3 md:pr-4">
+          <li key={m.id} className="relative flex gap-4 xl:flex-col xl:gap-3 xl:pr-4">
             {!last && (
               <span
                 aria-hidden
                 className={cn(
-                  'absolute -bottom-7 left-[15px] top-8 w-0.5 md:bottom-auto md:left-8 md:right-0 md:top-[15px] md:h-0.5 md:w-auto',
+                  'absolute -bottom-7 left-[15px] top-8 w-0.5 xl:bottom-auto xl:left-8 xl:right-0 xl:top-[15px] xl:h-0.5 xl:w-auto',
                   m.status === 'completado' ? 'bg-gold-500' : 'bg-border',
                 )}
               />

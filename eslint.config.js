@@ -39,7 +39,10 @@ export default tseslint.config(
             },
           ],
           paths: [
-            { name: '@supabase/supabase-js', message: 'El cliente de Supabase solo vive en src/data.' },
+            {
+              name: '@supabase/supabase-js',
+              message: 'El cliente de Supabase solo vive en src/data.',
+            },
           ],
         },
       ],
