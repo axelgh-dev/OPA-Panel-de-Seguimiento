@@ -43,13 +43,25 @@ Desde la carpeta del proyecto en tu computadora:
 ```bash
 npx supabase login                          # abre el navegador para autorizar
 npx supabase link --project-ref TU_REFERENCE_ID   # te pide la contraseña de la base (A1)
-npx supabase db push                        # aplica las 7 migraciones
+npx supabase migration list --remote        # muestra qué migraciones faltan en producción
+npx supabase db push --remote               # aplica las 7 migraciones en producción
 ```
+
+**Importante:** usa siempre `--remote`. Con la versión del CLI de este proyecto, `db push` y `migration list` apuntan por defecto a la base local de Docker aunque el proyecto ya esté ligado (verás "Target: local stack"). Sin `--remote`, `db push` responde "Local database is up to date" y producción se queda sin tablas.
 
 Revisa con calma lo que va a aplicar antes de confirmar. Después verifica en el panel:
 
 - **Table Editor**: aparecen `projects`, `milestones`, `tasks`, `deliverables`, `profiles`, etc., todas con **RLS enabled**.
 - **Storage**: existe el bucket privado `deliverables`.
+
+Si creaste usuarios en **Authentication** antes de aplicar las migraciones, el trigger que crea los perfiles todavía no existía y esos usuarios no tienen fila en `profiles` (no podrán entrar al panel ni aparecerán en A6). Créalos una sola vez en **SQL Editor**; es seguro repetirlo:
+
+```sql
+insert into public.profiles (id, email, full_name)
+select id, email, coalesce(nullif(raw_user_meta_data ->> 'full_name', ''), split_part(email, '@', 1))
+  from auth.users
+ on conflict (id) do nothing;
+```
 
 No cargues datos de ejemplo en producción: el seed (`npm run db:seed`) solo funciona contra la base local y se niega a correr en otra.
 
@@ -154,6 +166,8 @@ Para que el despacho siga viendo la maqueta con datos de ejemplo:
 
 | Síntoma | Causa probable |
 |---|---|
+| `db push` dice "Local database is up to date" y en Supabase no hay tablas | Falta `--remote`: el CLI apuntó a la base local (A4). |
+| Un usuario existe en Authentication pero no aparece en `profiles` | Se creó antes de las migraciones: ejecuta el `insert` de A4. |
 | El panel muestra "Faltan VITE_SUPABASE_URL…" | Las variables no están en el entorno correcto o no se volvió a desplegar. |
 | "Correo o contraseña incorrectos" con datos correctos | El usuario no tiene **Auto Confirm User** o la contraseña se escribió distinto en A5. |
 | Entras pero no ves ningún proyecto | Todavía no hay proyectos publicados, o la cuenta quedó con `is_active = false`. |
