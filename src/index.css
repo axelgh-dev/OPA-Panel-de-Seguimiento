@@ -1,0 +1,103 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/source-serif-4';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens de marca OP&A (AGENT.md §Diseño / REQUERIMIENTOS §8.2).
+ * Todos en HSL ("H S% L%") para que Tailwind pueda aplicar opacidad.
+ * Valores calculados a partir del hex de la marca; el hex va en el comentario.
+ * Solo modo claro en el MVP, pero los tokens están separados de los roles de shadcn
+ * para poder añadir modo oscuro después redefiniendo la segunda capa.
+ */
+@layer base {
+  :root {
+    /* --- Capa 1: marca --- */
+    --navy-900: 212 34.9% 16.9%; /* #1C2A3A  sidebar */
+    --navy-700: 213.2 31.5% 29.2%; /* #334862  primario */
+    --navy-100: 212.7 28.2% 92.4%; /* #E6EBF1  selección / hover */
+    --gold-600: 36.9 30.8% 41.4%; /* #8A7149  texto dorado (solo grande) */
+    --gold-500: 36.9 27.6% 50.2%; /* #A3885D  acento (nunca texto pequeño) */
+    --gold-100: 38.8 39.5% 91.6%; /* #F2ECE1  fondo de acento */
+    --surface: 0 0% 100%; /* #FFFFFF  tarjetas */
+    --canvas: 48 23.8% 95.9%; /* #F7F6F2  fondo de la app */
+    --line: 45 18.2% 87.1%; /* #E4E1D8  bordes */
+    --ink: 210 24.4% 16.1%; /* #1F2933  texto */
+    --ink-muted: 213.3 12.4% 42.5%; /* #5F6B7A  texto secundario */
+
+    /* Estatus: color pleno, fondo tenue (12 %) y tinta oscura con contraste AA sobre el fondo tenue */
+    --success: 153.8 45.3% 33.7%; /* #2F7D5B */
+    --success-soft: 153.3 22% 92%;
+    --success-ink: 154.4 49.6% 24.1%;
+    --warning: 35.5 71% 42%; /* #B7791F */
+    --warning-soft: 36.7 50% 92.9%;
+    --warning-ink: 36.2 76.8% 27.1%;
+    --danger: 0 50.2% 46.5%; /* #B23B3B */
+    --danger-soft: 0 45.5% 93.5%;
+    --danger-ink: 0 52.7% 36.5%;
+    --info: 206.9 55.2% 41.2%; /* #2F6FA3 */
+    --info-soft: 205.7 38.9% 92.9%;
+    --info-ink: 206.6 61% 31.2%;
+
+    /* --- Capa 2: roles de shadcn --- */
+    --background: var(--canvas);
+    --foreground: var(--ink);
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--navy-700);
+    --primary-foreground: 0 0% 100%;
+    --secondary: var(--navy-100);
+    --secondary-foreground: var(--navy-700);
+    --muted: 45 21.1% 92.5%; /* #F0EEE8 */
+    --muted-foreground: var(--ink-muted);
+    --accent: var(--gold-100);
+    --accent-foreground: var(--ink);
+    --destructive: var(--danger);
+    --destructive-foreground: 0 0% 100%;
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--navy-700);
+    --radius: 0.625rem; /* 10 px; las tarjetas usan rounded-xl = 12 px */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-sm text-foreground antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2 {
+    @apply font-serif font-semibold tracking-tight text-primary;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
