@@ -15,8 +15,16 @@ import type {
   CommentWithAuthor,
   DashboardKpis,
   DeliverableWithReviews,
+  Deliverable,
+  DeliverableInput,
   Milestone,
+  MilestoneInput,
   Profile,
+  ProfileUpdate,
+  ProjectInput,
+  ProjectUpdate,
+  TaskInput,
+  UpdateInput,
   Project,
   ProjectOverview,
   Task,
@@ -27,6 +35,9 @@ import { unwrap } from './errors'
 
 /** Columnas de `profiles` que expone el dominio (sin `notify_prefs`). */
 const PROFILE_COLS = 'id, full_name, email, role, job_title, avatar_url, is_active, created_at'
+
+/** Límite de archivos de entregables (el bucket también lo exige). */
+const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 /** Autor de eventos generados sin sesión (p. ej. desde el SQL Editor). */
 const SYSTEM_PROFILE: Profile = {
@@ -105,10 +116,14 @@ async function loadOverviews(): Promise<{ overviews: ProjectOverview[]; mileston
  */
 async function readAtByProject(): Promise<{ readAt: Map<string, string>; fallback: string }> {
   const [rows, me] = await Promise.all([
-    unwrap(supabase.from('read_receipts').select('target_id, read_at').eq('target_type', 'project')),
+    unwrap(
+      supabase.from('read_receipts').select('target_id, read_at').eq('target_type', 'project'),
+    ),
     myId(),
   ])
-  const profile = await unwrap(supabase.from('profiles').select('created_at').eq('id', me).maybeSingle())
+  const profile = (await unwrap(
+    supabase.from('profiles').select('created_at').eq('id', me).maybeSingle(),
+  )) as { created_at: string } | null
   return {
     readAt: new Map(rows.map((r) => [r.target_id, r.read_at])),
     fallback: profile?.created_at ?? '',
@@ -401,6 +416,179 @@ export const adapter: DataAdapter = {
       supabase.from('tasks').update({ status }).eq('id', taskId).select('id'),
     )
     expectRows(rows, 'Solo el desarrollador puede editar tareas.')
+  },
+
+  // ---------- Captura (solo dev: RLS rechaza a cualquier otro rol) ----------
+
+  async createProject(input: ProjectInput) {
+    return (await unwrap(supabase.from('projects').insert(input).select().single())) as Project
+  },
+
+  async updateProject(id: string, patch: Partial<ProjectInput>) {
+    const rows = await unwrap(supabase.from('projects').update(patch).eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo guardar: el proyecto no existe o no tienes permiso.')
+  },
+
+  async deleteProject(id: string) {
+    const rows = await unwrap(supabase.from('projects').delete().eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo eliminar: el proyecto no existe o no tienes permiso.')
+  },
+
+  async createMilestone(input: MilestoneInput) {
+    const last = await unwrap(
+      supabase
+        .from('milestones')
+        .select('position')
+        .eq('project_id', input.project_id)
+        .order('position', { ascending: false })
+        .limit(1),
+    )
+    return (await unwrap(
+      supabase
+        .from('milestones')
+        .insert({ ...input, position: (last[0]?.position ?? -1) + 1 })
+        .select()
+        .single(),
+    )) as Milestone
+  },
+
+  async updateMilestone(id: string, patch: Partial<Omit<MilestoneInput, 'project_id'>>) {
+    const rows = await unwrap(supabase.from('milestones').update(patch).eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo guardar: el hito no existe o no tienes permiso.')
+  },
+
+  async deleteMilestone(id: string) {
+    const rows = await unwrap(supabase.from('milestones').delete().eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo eliminar: el hito no existe o no tienes permiso.')
+  },
+
+  async reorderMilestones(projectId: string, orderedIds: string[]) {
+    await Promise.all(
+      orderedIds.map((id, position) =>
+        unwrap(
+          supabase.from('milestones').update({ position }).eq('id', id).eq('project_id', projectId),
+        ),
+      ),
+    )
+  },
+
+  async createTask(input: TaskInput) {
+    const last = await unwrap(
+      supabase
+        .from('tasks')
+        .select('position')
+        .eq('project_id', input.project_id)
+        .order('position', { ascending: false })
+        .limit(1),
+    )
+    return (await unwrap(
+      supabase
+        .from('tasks')
+        .insert({ ...input, position: (last[0]?.position ?? -1) + 1 })
+        .select()
+        .single(),
+    )) as Task
+  },
+
+  async updateTask(id: string, patch: Partial<Omit<TaskInput, 'project_id'>>) {
+    const rows = await unwrap(supabase.from('tasks').update(patch).eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo guardar: la tarea no existe o no tienes permiso.')
+  },
+
+  async deleteTask(id: string) {
+    const rows = await unwrap(supabase.from('tasks').delete().eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo eliminar: la tarea no existe o no tienes permiso.')
+  },
+
+  async createDeliverable(input: DeliverableInput) {
+    return (await unwrap(
+      supabase
+        .from('deliverables')
+        .insert({ ...input, created_by: await myId() })
+        .select()
+        .single(),
+    )) as Deliverable
+  },
+
+  async updateDeliverable(id: string, patch: Partial<Omit<DeliverableInput, 'project_id'>>) {
+    const rows = await unwrap(supabase.from('deliverables').update(patch).eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo guardar: el entregable no existe o ya está aprobado.')
+  },
+
+  async deleteDeliverable(id: string) {
+    const rows = await unwrap(
+      supabase.from('deliverables').delete().eq('id', id).select('id, storage_path'),
+    )
+    const [removed] = expectRows(rows, 'Solo se pueden eliminar entregables en borrador.')
+    // El archivo huérfano se limpia sin bloquear la operación.
+    if (removed.storage_path)
+      void supabase.storage.from('deliverables').remove([removed.storage_path])
+  },
+
+  async uploadDeliverableFile(deliverableId: string, file: File) {
+    if (file.size > MAX_FILE_BYTES) {
+      throw new DomainError(
+        'El archivo pesa más de 20 MB. Súbelo a Drive o similar y pega el enlace.',
+      )
+    }
+    const current = (await unwrap(
+      supabase
+        .from('deliverables')
+        .select('project_id, storage_path, status')
+        .eq('id', deliverableId)
+        .maybeSingle(),
+    )) as { project_id: string; storage_path: string | null; status: string } | null
+    if (!current) throw new DomainError('El entregable no existe.')
+    if (current.status === 'aprobado') {
+      throw new DomainError('Un entregable aprobado no se puede modificar.')
+    }
+    const safeName = file.name.replace(/[^\w.\-]+/g, '_').slice(-120)
+    const path = `${current.project_id}/${deliverableId}/${safeName}`
+    const { error } = await supabase.storage
+      .from('deliverables')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined })
+    if (error) throw new DomainError('No pudimos subir el archivo. Intenta de nuevo.')
+    await unwrap(
+      supabase.from('deliverables').update({ storage_path: path }).eq('id', deliverableId),
+    )
+    if (current.storage_path && current.storage_path !== path) {
+      void supabase.storage.from('deliverables').remove([current.storage_path])
+    }
+  },
+
+  async getDeliverableFileUrl(storagePath: string) {
+    const { data, error } = await supabase.storage
+      .from('deliverables')
+      .createSignedUrl(storagePath, 600)
+    if (error) throw new DomainError('No pudimos abrir el archivo. Intenta de nuevo.')
+    return data.signedUrl
+  },
+
+  async createUpdate(input: UpdateInput) {
+    return (await unwrap(
+      supabase
+        .from('project_updates')
+        .insert({ ...input, author_id: await myId() })
+        .select()
+        .single(),
+    )) as ProjectUpdate
+  },
+
+  async updateUpdate(id: string, patch: Partial<Omit<UpdateInput, 'project_id'>>) {
+    const rows = await unwrap(
+      supabase.from('project_updates').update(patch).eq('id', id).select('id'),
+    )
+    expectRows(rows, 'No se pudo guardar: la entrada no existe o no tienes permiso.')
+  },
+
+  async deleteUpdate(id: string) {
+    const rows = await unwrap(supabase.from('project_updates').delete().eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo eliminar: la entrada no existe o no tienes permiso.')
+  },
+
+  async updateProfile(id: string, patch: ProfileUpdate) {
+    const rows = await unwrap(supabase.from('profiles').update(patch).eq('id', id).select('id'))
+    expectRows(rows, 'No se pudo guardar: el usuario no existe o no tienes permiso.')
   },
 
   /** Marca el proyecto como visto (`read_receipts`). */

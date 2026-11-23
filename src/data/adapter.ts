@@ -8,7 +8,16 @@ import type {
   CreateChangeRequestInput,
   DashboardKpis,
   DeliverableWithReviews,
+  DeliverableInput,
   EditCommentInput,
+  MilestoneInput,
+  ProfileUpdate,
+  Project,
+  ProjectInput,
+  TaskInput,
+  UpdateInput,
+  ProjectUpdate,
+  Deliverable,
   Milestone,
   PriorityLevel,
   Profile,
@@ -47,6 +56,30 @@ export interface DataAdapter {
   setProjectPriority(projectId: string, priority: PriorityLevel): Promise<void>
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>
   markProjectRead(projectId: string): Promise<void>
+
+  // Captura (solo dev; la base de datos lo hace cumplir con RLS)
+  createProject(input: ProjectInput): Promise<Project>
+  updateProject(id: string, patch: Partial<ProjectInput>): Promise<void>
+  deleteProject(id: string): Promise<void>
+  createMilestone(input: MilestoneInput): Promise<Milestone>
+  updateMilestone(id: string, patch: Partial<Omit<MilestoneInput, 'project_id'>>): Promise<void>
+  deleteMilestone(id: string): Promise<void>
+  /** Fija el orden de los hitos según la lista de ids. */
+  reorderMilestones(projectId: string, orderedIds: string[]): Promise<void>
+  createTask(input: TaskInput): Promise<Task>
+  updateTask(id: string, patch: Partial<Omit<TaskInput, 'project_id'>>): Promise<void>
+  deleteTask(id: string): Promise<void>
+  createDeliverable(input: DeliverableInput): Promise<Deliverable>
+  updateDeliverable(id: string, patch: Partial<Omit<DeliverableInput, 'project_id'>>): Promise<void>
+  deleteDeliverable(id: string): Promise<void>
+  /** Sube el archivo al almacenamiento y lo asocia al entregable. */
+  uploadDeliverableFile(deliverableId: string, file: File): Promise<void>
+  /** URL temporal de descarga del archivo de un entregable (null si no hay almacenamiento). */
+  getDeliverableFileUrl(storagePath: string): Promise<string | null>
+  createUpdate(input: UpdateInput): Promise<ProjectUpdate>
+  updateUpdate(id: string, patch: Partial<Omit<UpdateInput, 'project_id'>>): Promise<void>
+  deleteUpdate(id: string): Promise<void>
+  updateProfile(id: string, patch: ProfileUpdate): Promise<void>
 }
 
 /** Autenticación real (solo con Supabase). */

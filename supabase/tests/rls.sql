@@ -283,6 +283,12 @@ select tests.fails('dev no edita el texto de un comentario ajeno',
   $q$update public.comments set body = 'x' where author_id = '00000000-0000-0000-0000-0000000000a1'$q$, 'ocultar');
 select tests.works('dev cambia el rol de otra cuenta',
   $q$update public.profiles set job_title = 'Ejecutivo' where email = 'ej1@test.mx'$q$);
+select tests.fails('dev no puede desactivarse a sí mismo',
+  $q$update public.profiles set is_active = false where id = auth.uid()$q$, 'propia cuenta');
+select tests.fails('dev no puede quitarse el rol dev',
+  $q$update public.profiles set role = 'opa' where id = auth.uid()$q$, 'propia cuenta');
+select tests.works('dev desactiva a otra cuenta',
+  $q$update public.profiles set is_active = false where email = 'ej1@test.mx'$q$);
 select tests.fails('dev no puede borrar activity_log',
   'delete from public.activity_log', 'permission denied');
 select tests.logout();

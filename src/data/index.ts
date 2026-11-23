@@ -64,4 +64,26 @@ export const {
   setProjectPriority,
   updateTaskStatus,
   markProjectRead,
+  createProject,
+  updateProject,
+  deleteProject,
+  createMilestone,
+  updateMilestone,
+  deleteMilestone,
+  reorderMilestones,
+  createTask,
+  updateTask,
+  deleteTask,
+  createDeliverable,
+  updateDeliverable,
+  deleteDeliverable,
+  uploadDeliverableFile,
+  getDeliverableFileUrl,
+  createUpdate,
+  updateUpdate,
+  deleteUpdate,
+  updateProfile,
 } = impl
+
+/** Los archivos de entregables solo se pueden subir con el almacenamiento real (Supabase Storage). */
+export const filesEnabled = dataMode === 'supabase'
