@@ -542,7 +542,7 @@ export const adapter: DataAdapter = {
     if (current.status === 'aprobado') {
       throw new DomainError('Un entregable aprobado no se puede modificar.')
     }
-    const safeName = file.name.replace(/[^\w.\-]+/g, '_').slice(-120)
+    const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(-120)
     const path = `${current.project_id}/${deliverableId}/${safeName}`
     const { error } = await supabase.storage
       .from('deliverables')

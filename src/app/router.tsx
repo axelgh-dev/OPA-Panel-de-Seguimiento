@@ -47,6 +47,18 @@ const routes: RouteObject[] = [
       // El dashboard ya es la lista de proyectos; /proyectos redirige ahí (ver SUPUESTO en Sidebar).
       { path: 'proyectos', element: <Navigate to="/" replace /> },
       {
+        path: 'proyectos/nuevo',
+        lazy: async () => ({
+          Component: (await import('@/features/manage/ProjectFormPage')).ProjectFormPage,
+        }),
+      },
+      {
+        path: 'proyectos/:slug/editar',
+        lazy: async () => ({
+          Component: (await import('@/features/manage/ProjectFormPage')).ProjectFormPage,
+        }),
+      },
+      {
         path: 'proyectos/:slug',
         lazy: async () => ({
           Component: (await import('@/features/projects/ProjectDetailPage')).ProjectDetailPage,

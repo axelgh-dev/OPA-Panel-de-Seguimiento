@@ -1,10 +1,17 @@
+import { Pencil, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { UpdateWithMeta } from '@/data'
 import { DateLabel } from '@/components/shared/DateLabel'
 import { Markdown } from '@/components/shared/Markdown'
 import { UpdateTypeChip } from '@/components/shared/chips'
 import { UserAvatar } from '@/components/shared/UserAvatar'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { RoleGate } from '@/components/shared/RoleGate'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { UpdateDialog } from '@/features/manage/UpdateDialog'
+import { useDeleteUpdate } from '@/features/manage/hooks'
 import { CommentsToggle } from '@/features/comments/CommentsToggle'
 
 export function UpdateCard({
@@ -14,6 +21,9 @@ export function UpdateCard({
   update: UpdateWithMeta
   showProject?: boolean
 }) {
+  const [editing, setEditing] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const remove = useDeleteUpdate()
   return (
     <article className="rounded-xl border bg-card p-5 shadow-card">
       <header className="space-y-2">
@@ -40,6 +50,34 @@ export function UpdateCard({
         </p>
       </header>
       <Markdown className="mt-4">{u.body_md}</Markdown>
+      <RoleGate action="update.publish">
+        <div className="mt-4 flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <Pencil aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+            Editar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-danger-ink hover:bg-danger-soft"
+            onClick={() => setRemoving(true)}
+          >
+            <Trash2 aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+            Eliminar
+          </Button>
+        </div>
+        {editing && (
+          <UpdateDialog open onOpenChange={setEditing} projectId={u.project_id} update={u} />
+        )}
+        <ConfirmDialog
+          open={removing}
+          onOpenChange={setRemoving}
+          title="Eliminar entrada"
+          description={`Se borrará “${u.title}” de la bitácora. Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar entrada"
+          onConfirm={() => remove.mutateAsync(u.id)}
+        />
+      </RoleGate>
       <div className="mt-5 border-t pt-4">
         <CommentsToggle
           projectId={u.project_id}

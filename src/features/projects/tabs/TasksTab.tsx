@@ -1,4 +1,5 @@
-import { ListChecks, Lock } from 'lucide-react'
+import { ListChecks, Lock, Pencil, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import type { Milestone, Task, TaskStatus } from '@/data'
 import { DateLabel } from '@/components/shared/DateLabel'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -7,13 +8,20 @@ import { RoleGate } from '@/components/shared/RoleGate'
 import { TaskStatusChip } from '@/components/shared/chips'
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MetaSelectItems } from '@/components/shared/MetaSelectItems'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { QuickAddTask, TaskEditDialog } from '@/features/manage/TaskForms'
+import { useDeleteTask } from '@/features/manage/hooks'
 import { TASK_STATUS } from '@/lib/labels'
 import { useSession } from '@/lib/session'
 import { useMilestones, useTasks, useUpdateTaskStatus } from '../hooks'
 
-function TaskRow({ task }: { task: Task }) {
+function TaskRow({ task, milestones }: { task: Task; milestones: Milestone[] }) {
   const update = useUpdateTaskStatus()
+  const remove = useDeleteTask()
+  const [editing, setEditing] = useState(false)
+  const [removing, setRemoving] = useState(false)
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
       <div className="min-w-0 flex-1 basis-60">
@@ -56,6 +64,35 @@ function TaskRow({ task }: { task: Task }) {
             <MetaSelectItems map={TASK_STATUS} className="text-xs" />
           </SelectContent>
         </Select>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Editar la tarea ${task.title}`}
+            onClick={() => setEditing(true)}
+          >
+            <Pencil aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Eliminar la tarea ${task.title}`}
+            onClick={() => setRemoving(true)}
+          >
+            <Trash2 aria-hidden className="h-4 w-4 text-danger-ink" strokeWidth={1.5} />
+          </Button>
+        </div>
+        {editing && (
+          <TaskEditDialog task={task} milestones={milestones} open onOpenChange={setEditing} />
+        )}
+        <ConfirmDialog
+          open={removing}
+          onOpenChange={setRemoving}
+          title="Eliminar tarea"
+          description={`Se borrará “${task.title}”. Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar tarea"
+          onConfirm={() => remove.mutateAsync(task.id)}
+        />
       </RoleGate>
     </li>
   )
@@ -80,11 +117,20 @@ export function TasksTab({ projectId }: { projectId: string }) {
   }
   if ((tasks.data ?? []).length === 0) {
     return (
-      <EmptyState
-        icon={ListChecks}
-        title="Aún no hay tareas en este proyecto"
-        description="Axel las irá agregando conforme avance cada hito."
-      />
+      <div className="space-y-5">
+        <RoleGate action="task.edit">
+          <QuickAddTask projectId={projectId} milestones={milestones.data ?? []} />
+        </RoleGate>
+        <EmptyState
+          icon={ListChecks}
+          title="Aún no hay tareas en este proyecto"
+          description={
+            user.role === 'dev'
+              ? 'Agrega la primera arriba; puedes asignarla a un hito.'
+              : 'Axel las irá agregando conforme avance cada hito.'
+          }
+        />
+      </div>
     )
   }
 
@@ -103,6 +149,9 @@ export function TasksTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-5">
+      <RoleGate action="task.edit">
+        <QuickAddTask projectId={projectId} milestones={milestones.data ?? []} />
+      </RoleGate>
       {user.role === 'opa' && (
         <p className="text-sm text-muted-foreground">
           Vista de solo lectura. Axel actualiza el estatus de las tareas.
@@ -120,7 +169,7 @@ export function TasksTab({ projectId }: { projectId: string }) {
             </h2>
             <ul className="mt-1 divide-y">
               {g.tasks.map((t) => (
-                <TaskRow key={t.id} task={t} />
+                <TaskRow key={t.id} task={t} milestones={milestones.data ?? []} />
               ))}
             </ul>
           </section>

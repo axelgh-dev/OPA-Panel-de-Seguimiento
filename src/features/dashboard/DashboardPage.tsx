@@ -1,9 +1,12 @@
 import { FolderSearch } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { ProjectFilters as Filters } from '@/data'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { RoleGate } from '@/components/shared/RoleGate'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
@@ -35,6 +38,16 @@ export function DashboardPage() {
       <PageHeader
         title={`Hola, ${user.full_name}`}
         description={capitalize(formatLongDate(new Date()))}
+        actions={
+          <RoleGate action="project.edit">
+            <Button asChild>
+              <Link to="/proyectos/nuevo">
+                <Plus aria-hidden className="mr-1.5 h-4 w-4" strokeWidth={1.5} />
+                Nuevo proyecto
+              </Link>
+            </Button>
+          </RoleGate>
+        }
       />
 
       {kpis.isError ? (
